@@ -3,9 +3,10 @@ import tkinter as tk
 
 from addon_service import scan_local_addons
 from addons_dialog import open_addons_window
+from chat_dialog import WoWChatWindow
 from config import LAUNCHER_VERSION, THEME, load_accounts, load_clients, load_settings, save_accounts, save_clients
 from launcher_actions import LauncherController
-from settings_dialog import open_settings_window
+from settings_dialog import find_realmlist_file, open_settings_window
 
 
 class RDLLauncher(tk.Tk):
@@ -20,6 +21,8 @@ class RDLLauncher(tk.Tk):
         self.addons_info = scan_local_addons(self.wow_dir)
         self.addons_listener = None
         self.logo_photo = None
+        self.chat_window = None
+        self.active_account_alias = ""
         self.addons_checking = False
         self.spinner_idx = 0
 
@@ -74,6 +77,21 @@ class RDLLauncher(tk.Tk):
             command=self.open_addons_dialog,
         )
         self.addons_btn.pack(side="right", padx=(6, 0), pady=6)
+
+        tk.Button(
+            self.header,
+            text="Chat WoW",
+            font=("Segoe UI", 9, "bold"),
+            fg=THEME["text_title"],
+            bg=THEME["bg_card"],
+            activebackground=THEME["accent"],
+            activeforeground="#04121f",
+            relief="flat",
+            padx=10,
+            pady=4,
+            cursor="hand2",
+            command=self.open_chat_dialog,
+        ).pack(side="right", padx=(6, 0), pady=6)
 
         # 3. Desplegable de seleccion de cuenta (a la izquierda de Addons)
         self.account_var = tk.StringVar()
@@ -269,13 +287,33 @@ class RDLLauncher(tk.Tk):
         def select_account(alias):
             accs, _ = load_accounts()
             save_accounts(accs, alias)
+            self.active_account_alias = alias
             self.account_var.set(f"👤 {alias}" if alias else "👤 Manual")
 
         menu.add_command(label="Manual (sin auto-login)", command=lambda: select_account(""))
         for alias in sorted(accounts.keys()):
             menu.add_command(label=f"👤 {alias}", command=lambda a=alias: select_account(a))
 
-        self.account_var.set(f"👤 {active}" if active and active in accounts else "👤 Manual")
+        self.active_account_alias = active if active in accounts else ""
+        self.account_var.set(f"👤 {self.active_account_alias}" if self.active_account_alias else "👤 Manual")
+
+    def open_chat_dialog(self):
+        if self.chat_window is not None:
+            if self.chat_window.winfo_exists():
+                self.chat_window.deiconify()
+                self.chat_window.lift()
+                return
+            self.chat_window = None
+        try:
+            realmlist_path = find_realmlist_file(self.wow_dir)
+        except OSError:
+            realmlist_path = None
+        self.chat_window = WoWChatWindow(self, realmlist_path, self.active_account_alias)
+
+    def destroy(self):
+        if self.chat_window is not None and self.chat_window.winfo_exists():
+            self.chat_window.close()
+        super().destroy()
 
     def open_addons_dialog(self):
         open_addons_window(
