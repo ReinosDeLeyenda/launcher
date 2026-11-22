@@ -73,7 +73,7 @@ Para distribuir el launcher a otros jugadores sin que necesiten tener Python ins
 
 ```bash
 pip install pyinstaller
-pyinstaller --noconsole --onefile --name "RDL_Launcher" --add-data "logo.png;." main.py
+python -m PyInstaller --noconsole --onefile --name "RDL_Launcher" --add-data "logo.png;." main.py
 ```
 
 El ejecutable final se generará dentro de la carpeta `dist/RDL_Launcher.exe`. *(Coloca una copia de `logo.png` junto al `.exe` si deseas que también lo cargue el icono del System Tray).*
