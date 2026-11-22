@@ -18,43 +18,50 @@ def is_newer_version(remote_ver, local_ver=LAUNCHER_VERSION):
 
 
 def check_launcher_update():
-    """Devuelve (has_update, remote_ver, download_url) sin depender solo de la API."""
+    """Devuelve (has_update, remote_ver, download_url) usando releases.atom sin límites de API."""
     remote_ver = ""
+    raw_tag = ""
     download_url = LAUNCHER_RELEASES_URL
 
-    # 1. Consultar API de GitHub Releases (devuelve tag_name y URL directa al .exe)
-    api_url = f"https://{HOST_API}/repos/{LAUNCHER_REPO}/releases/latest"
+    # 1. Feed Atom de Releases (sin rate-limit de API y funciona al instante tras publicar)
+    atom_url = f"https://{HOST_WEB}/{LAUNCHER_REPO}/releases.atom"
     try:
-        r = requests.get(api_url, timeout=8, headers=HEADERS)
+        r = requests.get(atom_url, timeout=8, headers=HEADERS)
+        debug_log("UPDATER", f"Atom status: {r.status_code}")
         if r.status_code == 200:
-            data = r.json()
-            remote_ver = data.get("tag_name", "").lstrip("vV")
-            for asset in data.get("assets", []):
-                if asset.get("name", "").lower().endswith(".exe"):
-                    download_url = asset.get("browser_download_url", download_url)
-                    break
-    except Exception as e:
-        debug_log("UPDATER", f"API releases no disponible ({e}), usando redirección web...")
-
-    # 2. Respaldo por redirección HTTP (/releases/latest -> /releases/tag/0.91)
-    if not remote_ver:
-        try:
-            r = requests.get(LAUNCHER_LATEST_URL, timeout=8, headers=HEADERS, allow_redirects=True)
-            m = re.search(r"/releases/tag/[vV]?([^/?#]+)", r.url)
+            # Busca el primer enlace a /releases/tag/<tag>
+            m = re.search(rf'/{re.escape(LAUNCHER_REPO)}/releases/tag/([^"\'<>\s]+)', r.text)
             if m:
-                remote_ver = m.group(1)
-                download_url = r.url
-        except Exception as e:
-            debug_log("UPDATER_ERR", f"Error comprobando actualización del launcher: {e}")
-            return False, "", LAUNCHER_RELEASES_URL
+                raw_tag = m.group(1)
+                remote_ver = raw_tag.lstrip("vV")
+                # URL directa estándar del ejecutable adjunto a la release
+                download_url = f"https://{HOST_WEB}/{LAUNCHER_REPO}/releases/download/{raw_tag}/RDL_Launcher.exe"
+    except Exception as e:
+        debug_log("UPDATER", f"Error leyendo releases.atom: {e}")
 
-    debug_log("UPDATER", f"Versión local: {LAUNCHER_VERSION} | Remota: {remote_ver}")
+    # 2. Respaldo: API de GitHub Releases (por si el .exe tiene otro nombre)
+    if not remote_ver:
+        api_url = f"https://{HOST_API}/repos/{LAUNCHER_REPO}/releases"
+        try:
+            r = requests.get(api_url, timeout=8, headers=HEADERS)
+            if r.status_code == 200 and r.json():
+                latest_rel = r.json()
+                raw_tag = latest_rel.get("tag_name", "")
+                remote_ver = raw_tag.lstrip("vV")
+                for asset in latest_rel.get("assets", []):
+                    if asset.get("name", "").lower().endswith(".exe"):
+                        download_url = asset.get("browser_download_url", download_url)
+                        break
+        except Exception as e:
+            debug_log("UPDATER", f"Error en API releases: {e}")
+
+    debug_log("UPDATER", f"Versión local: {LAUNCHER_VERSION} | Remota: {remote_ver} | URL: {download_url}")
     return is_newer_version(remote_ver, LAUNCHER_VERSION), remote_ver, download_url
 
 
 def download_and_apply_exe_update(download_url, progress_cb=None):
     """Descarga el nuevo .exe y lanza un script .bat para reemplazar el actual y reiniciar."""
-    if not getattr(sys, "frozen", False) or not download_url.lower().endswith(".exe"):
+    if not getattr(sys, "frozen", False):
         return False
 
     current_exe = sys.executable
@@ -62,7 +69,11 @@ def download_and_apply_exe_update(download_url, progress_cb=None):
     bat_path = os.path.join(BASE_DIR, "_update_launcher.bat")
 
     debug_log("UPDATER", f"Descargando actualización desde: {download_url}")
-    with requests.get(download_url, stream=True, timeout=60, headers=HEADERS) as r:
+    with requests.get(download_url, stream=True, timeout=60, headers=HEADERS, allow_redirects=True) as r:
+        # Si el nombre del asset no fuera RDL_Launcher.exe (404), abrir navegador en releases
+        if r.status_code == 404:
+            debug_log("UPDATER", "Asset RDL_Launcher.exe no encontrado directamente (404), abriendo web.")
+            return False
         r.raise_for_status()
         total = int(r.headers.get("content-length", 0))
         downloaded = 0
