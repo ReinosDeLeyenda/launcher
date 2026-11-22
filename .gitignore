@@ -1,0 +1,24 @@
+# Archivos de configuración personal y cuentas (contiene contraseñas en texto plano)
+rdl_launcher.ini
+rdl_launcher_config.json
+addons_cache.json
+
+# Logs de sesión y temporales
+launcher.log
+.log
+_rdl_temp_addons
+
+# Caché de Python
+__pycache__
+.py[cod]
+$py.class
+
+# Entornos virtuales
+venv
+.venv
+env
+
+# Compilaciones de PyInstaller
+build
+dist
+.spec

@@ -1,0 +1,14 @@
+## Interface: 30300
+## Title: |cff66ccffIceLFD|r - Buscador Azul Hielo
+## Notes: Modifica el UI del buscador de mazmorras a azul hielo y sincroniza retratos con iLvl del grupo.
+## Author: Assistant
+## Version: 3.4.2
+## SavedVariables: IceLFD_DB
+
+Core.lua
+UI_Logic.lua
+UI_Frame.lua
+UI_Slots.lua
+UI_PlayerBox.lua
+UI_Display.lua
+Sync.lua

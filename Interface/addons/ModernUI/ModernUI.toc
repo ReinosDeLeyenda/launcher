@@ -1,0 +1,72 @@
+## Interface: 30300
+## Title: |cff66ccffModernUI|r
+## Notes: Ventana de personaje unificada con equipo, mascotas, monturas y recetas.
+## Author: Custom
+## Version: 3.6
+## SavedVariables: ModernCharacterUI_GlobalDB, ModernUI_GuildCache
+## SavedVariablesPerCharacter: ModernCharacterUI_RecipesDB
+
+ItemSources.lua
+LibBridge.lua
+ThemeUtils.lua
+
+Data\Custom.lua
+Data\Mob.lua
+Data\Quest.lua
+Data\Reputation.lua
+Data\Seasonal.lua
+Data\Vendor.lua
+Data\MountDatabase.lua
+Data\PetDatabase.lua
+
+Data\ARL-Alchemy.lua
+Data\ARL-Blacksmith.lua
+Data\ARL-Cook.lua
+Data\ARL-Enchant.lua
+Data\ARL-Engineer.lua
+Data\ARL-FirstAid.lua
+Data\ARL-Inscription.lua
+Data\ARL-Jewelcraft.lua
+Data\ARL-Leatherwork.lua
+Data\ARL-Runeforge.lua
+Data\ARL-Smelt.lua
+Data\ARL-Tailor.lua
+
+Core.lua
+Options.lua
+
+Modulos\Tab_Character_Stats.lua
+Modulos\Tab_Character_Equip.lua
+Modulos\Tab_Character.lua
+Modulos\Tab_Pets_Missing.lua
+Modulos\Tab_Pets.lua
+Modulos\Tab_Reputation.lua
+Modulos\Tab_Skills_Data.lua
+Modulos\Tab_Skills_Crafters.lua
+Modulos\Tab_Skills.lua
+Modulos\Tab_Tokens.lua
+Modulos\Tab_QuestLog.lua
+Modulos\Tab_Interface.lua
+Modulos\Tab_Achievements.lua
+Modulos\Tab_Bags.lua
+Modulos\Tab_Glyphs.lua
+Modulos\Tab_SpellBook.lua
+Modulos\Tab_Talents.lua
+Modulos\Tab_Social.lua
+Modulos\Tab_Mail.lua
+Modulos\Tab_Loot.lua
+Modulos\Tab_Guild.lua
+Modulos\Tab_Guild_Control.lua
+Modulos\Tab_Guild_Detail.lua
+Modulos\Tab_Guild_Detail_Notes.lua
+Modulos\Tab_Guild_DungeonPie.lua
+Modulos\Tab_Guild_RaidPie.lua
+Modulos\Tab_Guild_Sync.lua
+Modulos\Tab_GuildBank.lua
+Modulos\Tab_Auction.lua
+Modulos\Tab_Dialogs.lua
+Modulos\Tab_Vendors_Data.lua
+Modulos\Tab_Vendors_Bar.lua
+Modulos\Tab_Vendors.lua
+Modulos\Tab_Tooltips.lua
+Modulos\Tab_Trade.lua

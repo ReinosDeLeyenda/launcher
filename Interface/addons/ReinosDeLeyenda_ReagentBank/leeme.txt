@@ -1,0 +1,83 @@
+================================================================================
+                  REINOS DE LEYENDA - PROFESIONES (v3.4)
+                 Addon Oficial para World of Warcraft 3.3.5a
+================================================================================
+
+AVISO IMPORTANTE DE COMPATIBILIDAD:
+Este addon ha sido diseñado y programado exclusivamente para el servidor
+"Reinos de Leyenda" (WoW 3.3.5a / build 12340).
+NO funcionara correctamente en otros servidores privados ni en el cliente
+oficial, ya que depende de sistemas personalizados del nucleo del servidor
+(como la Boveda de Componentes y la fabricacion remota desde banco).
+
+================================================================================
+1. CARACTERISTICAS PRINCIPALES
+================================================================================
+
+* Interfaz Unificada de Profesiones:
+  - Sustituye la ventana clasica de profesiones por un panel moderno, compacto
+    y movible.
+  - Barra superior integrada con accesos directos a todas tus profesiones
+    primarias y secundarias conocidas (Alquimia, Herreria, Encantamiento,
+    Ingenieria, Inscripcion, Joyeria, Peleteria, Sastreria, Fundicion,
+    Cocina, Primeros Auxilios y Runas).
+
+* Fabricacion Avanzada (Mochila + Banco + Boveda):
+  - Calcula en tiempo real cuantas unidades puedes fabricar sumando los
+    materiales de tus mochilas, tu banco personal y la Boveda de Componentes.
+  - Tooltip detallado en cada componente que desglosa exactamente cuantas
+    unidades tienes en cada ubicacion.
+  - Boton "Crear todos" inteligente que fabrica el maximo posible usando
+    tanto los materiales de tu inventario como los almacenados en el banco.
+  - Guardado automatico en banco: Si fabricas armas o armaduras mientras
+    tienes el banco personal abierto, el addon las guarda automaticamente en
+    los huecos libres de tu banco.
+
+* Filtros Rapidos y Rendimiento Optimizado:
+  - Buscador instantaneo por nombre de receta.
+  - Casilla "Con materiales" de alto rendimiento: filtra al instante solo las
+    recetas que puedes fabricar y oculta automaticamente las categorias vacias.
+  - Soporte para Shift + Clic en recetas, objetos e ingredientes para
+    enlazarlos directamente en el chat.
+
+* Desencantamiento Masivo Inteligente:
+  - Panel acoplado a la derecha para desencantar equipo de forma rapida y
+    segura.
+  - Filtros por calidad (Verdes, Azules, Epicos), rango de nivel de objeto
+    y opcion para incluir o proteger objetos ligados al alma.
+  - Doble ventana de confirmacion de seguridad antes de destruir objetos
+    epicos ligados.
+  - Ordenacion dinamica por cantidad (mayor a menor / menor a mayor) y por
+    nivel de objeto.
+  - Soporte para banco personal: Detecta el equipo guardado en tu banco
+    (marcado con [B]) y, si tienes el banco abierto, lo extrae a tu mochila
+    automaticamente para desencantarlo.
+  - Reposicionamiento automatico de la ventana de botin justo debajo del panel
+    de ejecucion para mayor comodidad.
+
+================================================================================
+2. REQUISITOS
+================================================================================
+
+* Cliente de World of Warcraft version 3.3.5a (12340).
+* Estar jugando en el servidor Reinos de Leyenda.
+* Para usar materiales del banco personal sin abrirlo, debes haber abierto tu
+  banco al menos una vez con ese personaje para que el addon guarde la cache.
+* Para usar materiales de la Boveda de Componentes, la pestana 1 del banco
+  de hermandad debe llamarse "Banco de Componentes" (o "Reagent Bank").
+* Para el desencantamiento masivo desde el banco, debes mantener al menos
+  1 hueco libre en tus mochilas personales.
+
+================================================================================
+3. INSTALACION
+================================================================================
+
+1. Descarga y descomprime la carpeta del addon.
+2. Asegurate de que la carpeta se llame exactamente igual que el archivo .toc
+   y copiala dentro de:
+   World of Warcraft\Interface\AddOns\
+3. Reinicia el juego o escribe /reload en el chat si ya estabas conectado.
+4. Verifica en el boton "Accesorios" (pantalla de seleccion de personaje) que
+   "Reinos de leyenda - Profesiones" este activado.
+
+================================================================================

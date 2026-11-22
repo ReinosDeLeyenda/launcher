@@ -1,0 +1,16 @@
+## Interface: 30300
+## Title: |cff7ce0ffReinos de leyenda|r - Profesiones
+## Notes: Ventana completa de profesiones con accesos directos y uso de Banco y Boveda.
+## Author: Reinos de leyenda
+## Version: 3.6.1
+## SavedVariablesPerCharacter: RDL_BankCache, RDL_ReagentBankCache
+
+RDL_Theme.lua
+RDL_Core.lua
+RDL_ProfList.lua
+RDL_MainFrame.lua
+RDL_MainLogic.lua
+RDL_Disenchant.lua
+RDL_DEFrame.lua
+RDL_DELogic.lua
+RDL_Init.lua
