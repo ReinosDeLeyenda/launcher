@@ -19,17 +19,17 @@ def open_accounts_window(parent, on_changed_cb):
 
     accounts, active_alias = load_accounts()
 
-    # ADVERTENCIA DE SEGURIDAD (TEXTO PLANO)
-    warn_box = tk.Frame(win, bg="#3b1818", highlightbackground="#ff5252", highlightthickness=1)
-    warn_box.pack(fill="x", padx=14, pady=(12, 8))
+    # AVISO DE SEGURIDAD (CIFRADO DPAPI + ENVIO AL CLIENTE)
+    info_box = tk.Frame(win, bg=THEME["bg_card"], highlightbackground=THEME["border"], highlightthickness=1)
+    info_box.pack(fill="x", padx=14, pady=(12, 8))
     tk.Label(
-        warn_box,
-        text="⚠️ ADVERTENCIA DE SEGURIDAD:\n"
-             "Por requisitos de WoW 3.3.5a, las contraseñas se almacenan en TEXTO PLANO\n"
-             "dentro de 'rdl_launcher.ini'. No uses esta función en equipos compartidos.",
+        info_box,
+        text="🔒 SEGURIDAD DE CUENTAS (WINDOWS DPAPI):\n"
+             "Las contraseñas se almacenan cifradas mediante Windows DPAPI (vinculadas a tu\n"
+             "sesión de Windows) y solo se descifran en memoria al enviarlas a WoW 3.3.5a.",
         font=("Segoe UI", 8, "bold"),
-        fg="#ff8a80",
-        bg="#3b1818",
+        fg=THEME["text_title"],
+        bg=THEME["bg_card"],
         justify="left",
         padx=10,
         pady=6,

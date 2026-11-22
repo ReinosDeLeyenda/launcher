@@ -151,6 +151,18 @@ class RDLLauncher(tk.Tk):
             command=self.ctrl.launch_wow,
         ).pack(fill="x", padx=20, pady=(6, 22))
 
+        self.wow_warn_lbl = tk.Label(
+            right,
+            text="",
+            font=("Segoe UI", 8, "bold"),
+            fg="#ff8a80",
+            bg=THEME["bg_panel"],
+            wraplength=320,
+            justify="center",
+        )
+        self.wow_warn_lbl.pack(fill="x", padx=20, pady=(0, 14))
+        self.check_wow_exe_warning()
+
     def set_status(self, msg):
         self.after(0, lambda m=msg: self.status_lbl.config(text=m))
 
@@ -225,6 +237,13 @@ class RDLLauncher(tk.Tk):
             self.refresh_account_dropdown,
         )
 
+    def check_wow_exe_warning(self):
+        import os
+        exe_path = os.path.join(self.wow_dir, "Wow.exe")
+        if not os.path.isfile(exe_path):
+            self.wow_warn_lbl.config(text="⚠️ No se encontró Wow.exe en la carpeta configurada.\nPulsa en '⚙ Ajustes' para seleccionar la ruta del juego.")
+        else:
+            self.wow_warn_lbl.config(text="")
 
 if __name__ == "__main__":
     RDLLauncher().mainloop()

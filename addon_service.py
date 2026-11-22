@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import io
 import json
 import os
@@ -8,7 +9,7 @@ import zipfile
 import requests
 from config import CACHE_FILE, HOST_API, HOST_RAW, HOST_WEB, debug_log, extract_github_slug
 
-HEADERS = {"User-Agent": "RDL-Launcher/1.0"}
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RDL-Launcher/1.0"}
 
 
 def _load_cache():
@@ -89,17 +90,53 @@ def scan_local_addons(wow_dir):
         local_list.append((main_name, ver, "Local", "Local", groups[main_name]))
     return local_list
 
+def _get_latest_commit_via_atom(slug, branch="main"):
+    for br in (branch, "master" if branch == "main" else "main"):
+        feed_url = f"https://{HOST_WEB}/{slug}/commits/{br}.atom"
+        try:
+            r = requests.get(feed_url, timeout=8, headers=HEADERS)
+            if r.status_code == 200:
+                m_sha = re.search(r"Commit/([0-9a-f]{40})", r.text)
+                m_date = re.search(r"<updated>([^<]+)</updated>", r.text)
+                if m_sha:
+                    return m_sha.group(1), (m_date.group(1) if m_date else ""), br
+        except Exception:
+            pass
+    return "", "", branch
 
-def _get_latest_commit_info(slug):
-    url = f"https://{HOST_API}/repos/{slug}/commits?per_page=1"
-    r = requests.get(url, timeout=10, headers=HEADERS)
+
+def _fetch_repo_folders(slug, branch):
+    api_url = f"https://{HOST_API}/repos/{slug}/contents"
+    try:
+        r = requests.get(api_url, timeout=10, headers=HEADERS)
+        if r.status_code == 200:
+            return [it["name"] for it in r.json() if it.get("type") == "dir" and not it["name"].startswith(".")]
+        debug_log("GITHUB", f"[{slug}] API devolvió HTTP {r.status_code}, usando respaldo web sin límite...")
+    except Exception as e:
+        debug_log("GITHUB", f"[{slug}] Error API ({e}), usando respaldo web...")
+
+    web_url = f"https://{HOST_WEB}/{slug}"
+    r = requests.get(web_url, timeout=12, headers=HEADERS)
     r.raise_for_status()
-    data = r.json()
-    if data and isinstance(data, list):
-        sha = data[0].get("sha", "")
-        date = data[0].get("commit", {}).get("committer", {}).get("date", "")
-        return sha, date
-    return "", ""
+    pattern = rf'href="/{re.escape(slug)}/tree/{re.escape(branch)}/([^"/]+)"'
+    found = re.findall(pattern, r.text)
+    if not found:
+        other_br = "master" if branch == "main" else "main"
+        pattern2 = rf'href="/{re.escape(slug)}/tree/{other_br}/([^"/]+)"'
+        found = re.findall(pattern2, r.text)
+    return sorted(set(name for name in found if not name.startswith(".")))
+
+
+def _fetch_single_toc(slug, branches, main_name):
+    for branch in branches:
+        toc_url = f"https://{HOST_RAW}/{slug}/{branch}/{main_name}/{main_name}.toc"
+        try:
+            tr = requests.get(toc_url, timeout=8, headers=HEADERS)
+            if tr.status_code == 200:
+                return parse_toc_version(tr.text), branch
+        except Exception:
+            pass
+    return "Desconocida", branches[0]
 
 
 def check_github_addons(wow_dir, repo_urls, force_refresh=False):
@@ -114,65 +151,43 @@ def check_github_addons(wow_dir, repo_urls, force_refresh=False):
             continue
 
         cached_repo = cache.get(repo_url, {})
-        latest_sha, latest_date = "", ""
-        try:
-            latest_sha, latest_date = _get_latest_commit_info(slug)
-            debug_log("GITHUB", f"[{slug}] Último commit: {latest_sha[:7]} ({latest_date})")
-        except Exception as e:
-            debug_log("GITHUB_ERR", f"[{slug}] No se pudo consultar commit: {e}")
+        pref_branch = cached_repo.get("branch", "main")
+        latest_sha, latest_date, detected_branch = _get_latest_commit_via_atom(slug, pref_branch)
+        debug_log("GITHUB", f"[{slug}] Último commit (Atom): {latest_sha[:7]} ({latest_date}) rama={detected_branch}")
 
-        # Si el SHA del último commit coincide con la caché, evitamos descargar los .toc
-        if (
-            not force_refresh
-            and latest_sha
-            and cached_repo.get("sha") == latest_sha
-            and "addons" in cached_repo
-        ):
-            debug_log("CACHE", f"[{slug}] Sin cambios desde {latest_date}. Usando caché local.")
+        if not force_refresh and latest_sha and cached_repo.get("sha") == latest_sha and "addons" in cached_repo:
+            debug_log("CACHE", f"[{slug}] Sin cambios. Cargando {len(cached_repo['addons'])} addons desde caché.")
             repo_entries = cached_repo["addons"]
         else:
-            api_url = f"https://{HOST_API}/repos/{slug}/contents"
-            debug_log("GITHUB", f"Descargando estructura y .toc desde: {api_url}")
             try:
-                r = requests.get(api_url, timeout=12, headers=HEADERS)
-                r.raise_for_status()
-                items = r.json()
-            except Exception:
-                debug_log("GITHUB_ERR", f"Error en {repo_url}:\n{traceback.format_exc()}")
-                # Si falla la red pero tenemos caché antigua, la usamos como respaldo
-                repo_entries = cached_repo.get("addons", [])
-            else:
-                folders = [it["name"] for it in items if it.get("type") == "dir" and not it["name"].startswith(".")]
+                folders = _fetch_repo_folders(slug, detected_branch)
                 groups = group_addon_folders(folders)
-                preferred_branch = cached_repo.get("branch", "main")
-                branches = [preferred_branch, "master" if preferred_branch == "main" else "main"]
+                branches = [detected_branch, "master" if detected_branch == "main" else "main"]
 
                 repo_entries = []
-                for main_name, modules in groups.items():
-                    remote_ver = "Desconocida"
-                    for branch in branches:
-                        toc_url = f"https://{HOST_RAW}/{slug}/{branch}/{main_name}/{main_name}.toc"
-                        tr = requests.get(toc_url, timeout=8, headers=HEADERS)
-                        if tr.status_code == 200:
-                            remote_ver = parse_toc_version(tr.text)
-                            preferred_branch = branch
-                            break
-
-                    repo_entries.append({
-                        "name": main_name,
-                        "remote_ver": remote_ver,
-                        "modules": modules,
-                    })
+                with ThreadPoolExecutor(max_workers=10) as pool:
+                    futures = {
+                        main_name: (modules, pool.submit(_fetch_single_toc, slug, branches, main_name))
+                        for main_name, modules in groups.items()
+                    }
+                    for main_name, (modules, fut) in futures.items():
+                        remote_ver, used_branch = fut.result()
+                        if remote_ver != "Desconocida":
+                            detected_branch = used_branch
+                        repo_entries.append({"name": main_name, "remote_ver": remote_ver, "modules": modules})
 
                 cache[repo_url] = {
                     "sha": latest_sha,
                     "date": latest_date,
-                    "branch": preferred_branch,
+                    "branch": detected_branch,
                     "addons": repo_entries,
                 }
                 cache_dirty = True
+                debug_log("CACHE", f"[{slug}] Guardados {len(repo_entries)} addons en caché.")
+            except Exception:
+                debug_log("GITHUB_ERR", f"Error en {repo_url}:\n{traceback.format_exc()}")
+                repo_entries = cached_repo.get("addons", [])
 
-        # Cruzar los datos remotos (cacheados o recién descargados) con las versiones locales actuales
         for entry in repo_entries:
             main_name = entry["name"]
             if main_name in seen_mains:

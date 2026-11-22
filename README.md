@@ -17,7 +17,6 @@ Launcher de escritorio desarrollado en Python con estética **azul hielo** dise�
 * **Gestor de Cuentas y Auto-Login:**
   * Selector desplegable en la cabecera para elegir rápidamente la cuenta con la que iniciar sesión o entrar en modo manual.
   * Configuración automática de `SET accountName` en `WTF\Config.wtf` y envío de contraseña al cliente.
-  * *(Nota de seguridad: por requisitos de WoW 3.3.5a, las contraseñas se almacenan en texto plano en `rdl_launcher.ini`).*
 * **Herramientas y Ajustes Integrados:**
   * Selector de carpeta de instalación de World of Warcraft.
   * Limpieza rápida de la carpeta `Cache` con un clic.

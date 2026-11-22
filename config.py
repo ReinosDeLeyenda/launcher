@@ -4,6 +4,8 @@ import os
 import re
 import sys
 
+from dpapi_crypto import decrypt_password, encrypt_password
+
 DEBUG = True
 
 BASE_DIR = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, "frozen", False) else __file__))
@@ -98,20 +100,26 @@ def load_settings():
 
 def save_settings(wow_dir, repos, minimize_to_tray=True):
     cfg = configparser.ConfigParser()
-    cfg["General"] = {
-        "wow_dir": wow_dir,
-        "minimize_to_tray": str(bool(minimize_to_tray)),
-    }
+    if os.path.exists(INI_FILE):
+        cfg.read(INI_FILE, encoding="utf-8")
+    if not cfg.has_section("General"):
+        cfg["General"] = {}
+
+    cfg["General"]["wow_dir"] = wow_dir
+    cfg["General"]["minimize_to_tray"] = str(bool(minimize_to_tray))
+
     clean_repos = [normalize_github_url(r) for r in repos if normalize_github_url(r)]
     if not clean_repos:
         clean_repos = [DEFAULT_REPO_URL]
     cfg["Addons"] = {"repos": "\n".join(clean_repos)}
+
     try:
         with open(INI_FILE, "w", encoding="utf-8") as f:
             cfg.write(f)
         debug_log("CONFIG", f"Ajustes guardados en {INI_FILE}")
     except Exception as e:
         debug_log("CONFIG_ERR", f"Error guardando INI: {e}")
+
 
 def load_accounts():
     cfg = configparser.ConfigParser()
@@ -123,9 +131,14 @@ def load_accounts():
     if cfg.has_section("Accounts"):
         for alias, raw in cfg.items("Accounts"):
             if "|" in raw:
-                user, pwd = raw.split("|", 1)
-                accounts[alias] = (user, pwd)
+                user, stored_pwd = raw.split("|", 1)
+                try:
+                    pwd = decrypt_password(stored_pwd)
+                    accounts[alias] = (user, pwd)
+                except Exception as e:
+                    debug_log("DPAPI_ERR", f"No se pudo descifrar la cuenta '{alias}': {e}")
     return accounts, active
+
 
 def save_accounts(accounts, active_alias=""):
     cfg = configparser.ConfigParser()
@@ -137,11 +150,15 @@ def save_accounts(accounts, active_alias=""):
 
     cfg["Accounts"] = {}
     for alias, (user, pwd) in accounts.items():
-        cfg["Accounts"][alias] = f"{user}|{pwd}"
+        try:
+            enc_pwd = encrypt_password(pwd)
+            cfg["Accounts"][alias] = f"{user}|{enc_pwd}"
+        except Exception as e:
+            debug_log("DPAPI_ERR", f"Error cifrando cuenta '{alias}': {e}")
 
     try:
         with open(INI_FILE, "w", encoding="utf-8") as f:
             cfg.write(f)
-        debug_log("ACCOUNTS", f"Cuentas guardadas ({len(accounts)}). Activa: '{active_alias}'")
+        debug_log("ACCOUNTS", f"Cuentas cifradas con DPAPI y guardadas ({len(accounts)}). Activa: '{active_alias}'")
     except Exception as e:
         debug_log("ACCOUNTS_ERR", f"Error guardando cuentas: {e}")

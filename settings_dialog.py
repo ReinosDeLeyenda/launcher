@@ -239,6 +239,16 @@ def open_settings_window(parent, current_dir, current_repos, current_min_tray, o
             if full_url not in valid_repos:
                 valid_repos.append(full_url)
 
+        exe_check = os.path.join(new_dir, "Wow.exe")
+        if not os.path.isfile(exe_check):
+            proceed = messagebox.askyesno(
+                "Wow.exe no encontrado",
+                f"No se encontró 'Wow.exe' en la ruta seleccionada:\n{new_dir}\n\n¿Deseas guardar esta ruta de todas formas?",
+                parent=win,
+            )
+            if not proceed:
+                return
+
         save_settings(new_dir, valid_repos, tray_var.get())
         on_saved_callback(new_dir, valid_repos, tray_var.get())
         win.destroy()
