@@ -25,7 +25,7 @@ HOST_RAW = "raw." + "githubusercontent.com"
 HOST_WEB = "github.com"
 DEFAULT_REPO_URL = f"https://{HOST_WEB}/ReinosDeLeyenda/addons"
 
-LAUNCHER_VERSION = "0.95"
+LAUNCHER_VERSION = "0.96"
 LAUNCHER_REPO = "ReinosDeLeyenda/launcher"
 LAUNCHER_RELEASES_URL = f"https://{HOST_WEB}/{LAUNCHER_REPO}/releases"
 LAUNCHER_LATEST_URL = f"{LAUNCHER_RELEASES_URL}/latest"
@@ -84,14 +84,75 @@ def normalize_github_url(raw_input):
     return f"https://{HOST_WEB}/{slug}" if slug else None
 
 
-def load_settings():
+def _new_parser():
     cfg = configparser.ConfigParser()
+    cfg.optionxform = str  # Conserva mayúsculas/minúsculas en nombres de perfiles
+    return cfg
+
+
+def load_clients():
+    cfg = _new_parser()
     if not os.path.exists(INI_FILE):
-        save_settings(os.getcwd(), [DEFAULT_REPO_URL], True)
-        return os.getcwd(), [DEFAULT_REPO_URL], True
+        default_clients = {"3.3.5a Default": os.getcwd()}
+        save_clients(default_clients, "3.3.5a Default")
+        return default_clients, "3.3.5a Default"
 
     cfg.read(INI_FILE, encoding="utf-8")
-    wow_dir = cfg.get("General", "wow_dir", fallback=os.getcwd())
+    active = cfg.get("General", "active_client", fallback="")
+    clients = {}
+    if cfg.has_section("Clients"):
+        for name, path in cfg.items("Clients"):
+            clients[name] = path
+
+    if not clients:
+        legacy_dir = cfg.get("General", "wow_dir", fallback=os.getcwd())
+        clients = {"3.3.5a Default": legacy_dir}
+        active = "3.3.5a Default"
+        save_clients(clients, active)
+
+    if active not in clients:
+        active = next(iter(clients))
+
+    return clients, active
+
+
+def save_clients(clients, active_client=""):
+    cfg = _new_parser()
+    if os.path.exists(INI_FILE):
+        cfg.read(INI_FILE, encoding="utf-8")
+    if not cfg.has_section("General"):
+        cfg["General"] = {}
+
+    if not clients:
+        clients = {"3.3.5a Default": os.getcwd()}
+    if active_client not in clients:
+        active_client = next(iter(clients))
+
+    cfg["General"]["active_client"] = active_client
+    cfg["General"]["wow_dir"] = clients[active_client]
+
+    cfg["Clients"] = {}
+    for name, path in clients.items():
+        cfg["Clients"][name] = path
+
+    try:
+        with open(INI_FILE, "w", encoding="utf-8") as f:
+            cfg.write(f)
+        debug_log("CLIENTS", f"Clientes guardados ({len(clients)}). Activo: '{active_client}'")
+    except Exception as e:
+        debug_log("CLIENTS_ERR", f"Error guardando clientes: {e}")
+
+
+def load_settings():
+    clients, active_client = load_clients()
+    wow_dir = clients[active_client]
+
+    cfg = _new_parser()
+    if not os.path.exists(INI_FILE):
+        save_settings(wow_dir, [DEFAULT_REPO_URL], True)
+        return wow_dir, [DEFAULT_REPO_URL], True
+
+    cfg.read(INI_FILE, encoding="utf-8")
     min_tray = cfg.getboolean("General", "minimize_to_tray", fallback=True)
     raw_repos = cfg.get("Addons", "repos", fallback=DEFAULT_REPO_URL)
     repos = []
@@ -105,7 +166,7 @@ def load_settings():
 
 
 def save_settings(wow_dir, repos, minimize_to_tray=True):
-    cfg = configparser.ConfigParser()
+    cfg = _new_parser()
     if os.path.exists(INI_FILE):
         cfg.read(INI_FILE, encoding="utf-8")
     if not cfg.has_section("General"):
@@ -128,7 +189,7 @@ def save_settings(wow_dir, repos, minimize_to_tray=True):
 
 
 def load_accounts():
-    cfg = configparser.ConfigParser()
+    cfg = _new_parser()
     if not os.path.exists(INI_FILE):
         return {}, ""
     cfg.read(INI_FILE, encoding="utf-8")
@@ -147,7 +208,7 @@ def load_accounts():
 
 
 def save_accounts(accounts, active_alias=""):
-    cfg = configparser.ConfigParser()
+    cfg = _new_parser()
     if os.path.exists(INI_FILE):
         cfg.read(INI_FILE, encoding="utf-8")
     if not cfg.has_section("General"):

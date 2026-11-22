@@ -3,7 +3,7 @@ import tkinter as tk
 
 from addon_service import scan_local_addons
 from addons_dialog import open_addons_window
-from config import LAUNCHER_VERSION, THEME, load_accounts, load_settings, save_accounts
+from config import LAUNCHER_VERSION, THEME, load_accounts, load_clients, load_settings, save_accounts, save_clients
 from launcher_actions import LauncherController
 from settings_dialog import open_settings_window
 
@@ -12,8 +12,8 @@ class RDLLauncher(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"Reinos de Leyenda - Launcher WoW 3.3.5a (v{LAUNCHER_VERSION})")
-        self.geometry("1040x620")
-        self.minsize(900, 540)
+        self.geometry("1040x640")
+        self.minsize(900, 560)
         self.configure(bg=THEME["bg_main"])
 
         self.wow_dir, self.repos, self.minimize_to_tray = load_settings()
@@ -139,12 +139,33 @@ class RDLLauncher(tk.Tk):
         self.news_canvas.pack(side="left", fill="both", expand=True)
         news_sb.pack(side="right", fill="y")
 
-        # Panel Derecho: Logo, Aviso Wow.exe y Lanzamiento
+        # Panel Derecho: Logo, Selector de Cliente, Aviso Wow.exe y Lanzamiento
         right = tk.Frame(center, bg=THEME["bg_panel"], highlightbackground=THEME["border"], highlightthickness=1)
         right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
 
         self.logo_label = tk.Label(right, text="", fg=THEME["text_muted"], bg=THEME["bg_panel"])
-        self.logo_label.pack(pady=(24, 12), padx=12, expand=True)
+        self.logo_label.pack(pady=(20, 10), padx=12, expand=True)
+
+        # Desplegable selector de Cliente 3.3.5a
+        cli_box = tk.Frame(right, bg=THEME["bg_card"], highlightbackground=THEME["border"], highlightthickness=1)
+        cli_box.pack(fill="x", padx=20, pady=(0, 8))
+        tk.Label(cli_box, text="Cliente:", font=("Segoe UI", 8, "bold"), fg=THEME["text_muted"], bg=THEME["bg_card"]).pack(side="left", padx=(10, 4), pady=6)
+
+        self.client_var = tk.StringVar()
+        self.client_menu = tk.OptionMenu(cli_box, self.client_var, "3.3.5a Default")
+        self.client_menu.config(
+            font=("Segoe UI", 9, "bold"),
+            fg=THEME["text_title"],
+            bg=THEME["bg_card"],
+            activebackground=THEME["accent"],
+            activeforeground="#04121f",
+            highlightthickness=0,
+            bd=0,
+            cursor="hand2",
+        )
+        self.client_menu["menu"].config(font=("Segoe UI", 9), fg=THEME["text_main"], bg=THEME["bg_panel"], activebackground=THEME["accent"], activeforeground="#04121f", bd=0)
+        self.client_menu.pack(side="left", fill="x", expand=True, padx=(0, 6), pady=4)
+        self.refresh_client_dropdown()
 
         tk.Button(
             right,
@@ -157,7 +178,7 @@ class RDLLauncher(tk.Tk):
             pady=14,
             cursor="hand2",
             command=self.ctrl.launch_wow,
-        ).pack(fill="x", padx=20, pady=(6, 10))
+        ).pack(fill="x", padx=20, pady=(4, 10))
 
         self.wow_warn_lbl = tk.Label(
             right,
@@ -220,6 +241,26 @@ class RDLLauncher(tk.Tk):
         else:
             self.addons_btn.config(text="🧩 Addons", bg=THEME["success"], fg="#04121f")
 
+    def refresh_client_dropdown(self):
+        clients, active = load_clients()
+        menu = self.client_menu["menu"]
+        menu.delete(0, "end")
+
+        def select_client(cname):
+            clis, _ = load_clients()
+            save_clients(clis, cname)
+            self.client_var.set(cname)
+            self.wow_dir = clis[cname]
+            self.addons_info = scan_local_addons(self.wow_dir)
+            self.check_wow_exe_warning()
+            self.ctrl.load_addons()
+
+        for cname in clients.keys():
+            menu.add_command(label=f"🎮 {cname}", command=lambda c=cname: select_client(c))
+
+        self.client_var.set(active)
+        self.wow_dir = clients[active]
+
     def refresh_account_dropdown(self):
         accounts, active = load_accounts()
         menu = self.account_menu["menu"]
@@ -248,12 +289,16 @@ class RDLLauncher(tk.Tk):
         )
 
     def open_settings_dialog(self):
+        def on_settings_saved(new_dir, new_repos, new_min_tray):
+            self.refresh_client_dropdown()
+            self.ctrl.reload_local_and_check(new_dir, new_repos, new_min_tray)
+
         open_settings_window(
             self,
             self.wow_dir,
             self.repos,
             self.minimize_to_tray,
-            self.ctrl.reload_local_and_check,
+            on_settings_saved,
             self.refresh_account_dropdown,
         )
 
