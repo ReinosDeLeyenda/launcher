@@ -12,7 +12,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, "froze
 LOG_FILE = os.path.join(BASE_DIR, "launcher.log")
 INI_FILE = os.path.join(BASE_DIR, "rdl_launcher.ini")
 CACHE_FILE = os.path.join(BASE_DIR, "addons_cache.json")
-LOCAL_LOGO_FILE = os.path.join(BASE_DIR, "logo.png")
+BUNDLE_DIR = getattr(sys, "_MEIPASS", BASE_DIR)
+LOCAL_LOGO_FILE = os.path.join(BUNDLE_DIR, "logo.png")
 
 DOMAIN_WEB = "reinosdeleyenda.org"
 BASE_WEB = f"https://{DOMAIN_WEB}"
@@ -23,6 +24,11 @@ HOST_API = "api." + "github.com"
 HOST_RAW = "raw." + "githubusercontent.com"
 HOST_WEB = "github.com"
 DEFAULT_REPO_URL = f"https://{HOST_WEB}/ReinosDeLeyenda/addons"
+
+LAUNCHER_VERSION = "0.95
+LAUNCHER_REPO = "ReinosDeLeyenda/launcher"
+LAUNCHER_RELEASES_URL = f"https://{HOST_WEB}/{LAUNCHER_REPO}/releases"
+LAUNCHER_LATEST_URL = f"{LAUNCHER_RELEASES_URL}/latest"
 
 THEME = {
     "bg_main": "#091b2e",

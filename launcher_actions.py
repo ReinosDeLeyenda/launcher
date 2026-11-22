@@ -6,12 +6,14 @@ import subprocess
 import threading
 import time
 from tkinter import messagebox
+import webbrowser
 
 from addon_service import check_github_addons, download_and_install, scan_local_addons
 from config import debug_log, load_accounts
 from news_service import fetch_latest_news, load_local_logo
 from tray_service import TrayManager
 from ui_widgets import render_news_cards
+from updater_service import check_launcher_update, download_and_apply_exe_update
 
 WM_CHAR = 0x0102
 WM_KEYDOWN = 0x0100
@@ -69,7 +71,7 @@ def _find_wow_hwnd(pid):
         return True
 
     user32.EnumWindows(enum_cb, 0)
-    return found[0] if found else None
+    return found if found else None
 
 
 def _auto_type_password_worker(pid, password):
@@ -120,6 +122,35 @@ class LauncherController:
         self.load_logo()
         self.load_news()
         self.load_addons()
+        self.check_self_update()
+
+    def check_self_update(self):
+        def worker():
+            has_upd, remote_ver, dl_url = check_launcher_update()
+            if has_upd:
+                self.app.after(0, lambda v=remote_ver, u=dl_url: self.app.show_launcher_update_banner(v, u))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def apply_self_update(self, download_url):
+        def worker():
+            self.app.set_status("Descargando actualización del launcher...")
+            try:
+                replaced = download_and_apply_exe_update(
+                    download_url,
+                    progress_cb=lambda pct: self.app.set_status(f"Descargando launcher: {pct}%"),
+                )
+                if replaced:
+                    self.app.after(0, self.quit_app)
+                else:
+                    webbrowser.open(download_url)
+                    self.app.set_status("Abierta página de descarga en el navegador")
+            except Exception as e:
+                err_msg = str(e)
+                self.app.set_status("Error al actualizar launcher")
+                self.app.after(0, lambda m=err_msg: messagebox.showerror("Error de actualización", m))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def load_logo(self):
         try:
@@ -176,6 +207,8 @@ class LauncherController:
         self.app.repos = new_repos
         self.app.minimize_to_tray = new_min_tray
         self.app.addons_info = scan_local_addons(new_dir)
+        if hasattr(self.app, "check_wow_exe_warning"):
+            self.app.check_wow_exe_warning()
         self.load_addons()
 
     def launch_wow(self):

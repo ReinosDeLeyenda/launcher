@@ -1,8 +1,9 @@
+import os
 import tkinter as tk
 
 from addon_service import scan_local_addons
 from addons_dialog import open_addons_window
-from config import THEME, load_accounts, load_settings, save_accounts
+from config import LAUNCHER_VERSION, THEME, load_accounts, load_settings, save_accounts
 from launcher_actions import LauncherController
 from settings_dialog import open_settings_window
 
@@ -10,7 +11,7 @@ from settings_dialog import open_settings_window
 class RDLLauncher(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Reinos de Leyenda - Launcher WoW 3.3.5a")
+        self.title(f"Reinos de Leyenda - Launcher WoW 3.3.5a (v{LAUNCHER_VERSION})")
         self.geometry("1040x620")
         self.minsize(900, 540)
         self.configure(bg=THEME["bg_main"])
@@ -29,12 +30,12 @@ class RDLLauncher(tk.Tk):
         self.ctrl.refresh_all()
 
     def build_ui(self):
-        header = tk.Frame(self, bg=THEME["bg_bar"], highlightbackground=THEME["border"], highlightthickness=1)
-        header.pack(fill="x", padx=10, pady=(10, 6))
+        self.header = tk.Frame(self, bg=THEME["bg_bar"], highlightbackground=THEME["border"], highlightthickness=1)
+        self.header.pack(fill="x", padx=10, pady=(10, 6))
 
         tk.Label(
-            header,
-            text="❄ REINOS DE LEYENDA — LAUNCHER OFICIAL (3.3.5a)",
+            self.header,
+            text=f"❄ REINOS DE LEYENDA — LAUNCHER v{LAUNCHER_VERSION}",
             font=("Segoe UI", 13, "bold"),
             fg=THEME["text_title"],
             bg=THEME["bg_bar"],
@@ -44,7 +45,7 @@ class RDLLauncher(tk.Tk):
 
         # 1. Boton Ajustes (extremo derecho)
         tk.Button(
-            header,
+            self.header,
             text="⚙ Ajustes",
             font=("Segoe UI", 9, "bold"),
             fg=THEME["text_title"],
@@ -60,7 +61,7 @@ class RDLLauncher(tk.Tk):
 
         # 2. Boton Addons (a la izquierda de Ajustes)
         self.addons_btn = tk.Button(
-            header,
+            self.header,
             text="🧩 Addons",
             font=("Segoe UI", 9, "bold"),
             fg="#04121f",
@@ -76,7 +77,7 @@ class RDLLauncher(tk.Tk):
 
         # 3. Desplegable de seleccion de cuenta (a la izquierda de Addons)
         self.account_var = tk.StringVar()
-        self.account_menu = tk.OptionMenu(header, self.account_var, "👤 Manual")
+        self.account_menu = tk.OptionMenu(self.header, self.account_var, "👤 Manual")
         self.account_menu.config(
             font=("Segoe UI", 9, "bold"),
             fg=THEME["text_title"],
@@ -100,8 +101,15 @@ class RDLLauncher(tk.Tk):
         self.account_menu.pack(side="right", padx=(6, 0), pady=6)
         self.refresh_account_dropdown()
 
-        self.status_lbl = tk.Label(header, text="Conectando...", font=("Segoe UI", 9), fg=THEME["text_muted"], bg=THEME["bg_bar"], padx=8)
+        self.status_lbl = tk.Label(self.header, text="Conectando...", font=("Segoe UI", 9), fg=THEME["text_muted"], bg=THEME["bg_bar"], padx=8)
         self.status_lbl.pack(side="right")
+
+        # Banner de actualizacion del propio Launcher (oculto por defecto)
+        self.update_banner = tk.Frame(self, bg=THEME["warning"], highlightbackground="#ffe082", highlightthickness=1)
+        self.update_lbl = tk.Label(self.update_banner, text="", font=("Segoe UI", 9, "bold"), fg="#04121f", bg=THEME["warning"], padx=12, pady=5)
+        self.update_lbl.pack(side="left")
+        self.update_btn = tk.Button(self.update_banner, text="⬇ Actualizar ahora", font=("Segoe UI", 8, "bold"), fg=THEME["text_main"], bg="#04121f", relief="flat", padx=12, pady=3, cursor="hand2")
+        self.update_btn.pack(side="right", padx=10, pady=4)
 
         center = tk.Frame(self, bg=THEME["bg_main"])
         center.pack(fill="both", expand=True, padx=10, pady=(4, 10))
@@ -131,7 +139,7 @@ class RDLLauncher(tk.Tk):
         self.news_canvas.pack(side="left", fill="both", expand=True)
         news_sb.pack(side="right", fill="y")
 
-        # Panel Derecho: Logo y Lanzamiento
+        # Panel Derecho: Logo, Aviso Wow.exe y Lanzamiento
         right = tk.Frame(center, bg=THEME["bg_panel"], highlightbackground=THEME["border"], highlightthickness=1)
         right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
 
@@ -149,7 +157,7 @@ class RDLLauncher(tk.Tk):
             pady=14,
             cursor="hand2",
             command=self.ctrl.launch_wow,
-        ).pack(fill="x", padx=20, pady=(6, 22))
+        ).pack(fill="x", padx=20, pady=(6, 10))
 
         self.wow_warn_lbl = tk.Label(
             right,
@@ -162,6 +170,18 @@ class RDLLauncher(tk.Tk):
         )
         self.wow_warn_lbl.pack(fill="x", padx=20, pady=(0, 14))
         self.check_wow_exe_warning()
+
+    def check_wow_exe_warning(self):
+        exe_path = os.path.join(self.wow_dir, "Wow.exe")
+        if not os.path.isfile(exe_path):
+            self.wow_warn_lbl.config(text="⚠️ No se encontró Wow.exe en la carpeta configurada.\nPulsa en '⚙ Ajustes' para seleccionar la ruta del juego.")
+        else:
+            self.wow_warn_lbl.config(text="")
+
+    def show_launcher_update_banner(self, remote_ver, download_url):
+        self.update_lbl.config(text=f"🚀 ¡Nueva versión del Launcher disponible: v{remote_ver} (actual: v{LAUNCHER_VERSION})!")
+        self.update_btn.config(command=lambda: self.ctrl.apply_self_update(download_url))
+        self.update_banner.pack(fill="x", padx=10, pady=(0, 6), after=self.header)
 
     def set_status(self, msg):
         self.after(0, lambda m=msg: self.status_lbl.config(text=m))
@@ -237,13 +257,6 @@ class RDLLauncher(tk.Tk):
             self.refresh_account_dropdown,
         )
 
-    def check_wow_exe_warning(self):
-        import os
-        exe_path = os.path.join(self.wow_dir, "Wow.exe")
-        if not os.path.isfile(exe_path):
-            self.wow_warn_lbl.config(text="⚠️ No se encontró Wow.exe en la carpeta configurada.\nPulsa en '⚙ Ajustes' para seleccionar la ruta del juego.")
-        else:
-            self.wow_warn_lbl.config(text="")
 
 if __name__ == "__main__":
     RDLLauncher().mainloop()
