@@ -33,7 +33,6 @@ def open_multibox_window(parent, on_launch_multibox_cb):
     win.minsize(740, 650)
     win.resizable(True, True)
     win.configure(bg=THEME["bg_panel"])
-    win.transient(parent)
     win.grab_set()
 
     parent.update_idletasks()
@@ -84,6 +83,11 @@ def open_multibox_window(parent, on_launch_multibox_cb):
     total_lbl.pack(side="left", padx=6)
 
     tk.Checkbutton(grid_bar, text="Mostrar bordes", variable=borders_var, font=("Segoe UI", 9, "bold"), fg=THEME["text_main"], bg=THEME["bg_card"], selectcolor=THEME["bg_bar"], activebackground=THEME["bg_card"], activeforeground=THEME["text_title"], cursor="hand2", command=lambda: draw_preview()).pack(side="right", padx=10)
+    bottom_bar = tk.Frame(win, bg=THEME["bg_panel"])
+    bottom_bar.pack(side="bottom", fill="x", padx=14, pady=(4, 10))
+    tk.Button(bottom_bar, text="LANZAR MULTIBOXING", font=("Segoe UI", 10, "bold"), fg="#04121f", bg=THEME["border_bright"], relief="flat", padx=18, pady=6, cursor="hand2", command=lambda: start_multibox()).pack(side="right", padx=(6, 0))
+    tk.Button(bottom_bar, text="Cancelar", font=("Segoe UI", 9), fg=THEME["text_main"], bg=THEME["bg_card"], relief="flat", padx=14, pady=6, cursor="hand2", command=win.destroy).pack(side="right")
+
     preview_box = tk.Frame(win, bg=THEME["bg_bar"], highlightbackground=THEME["border"], highlightthickness=1)
     preview_box.pack(fill="both", expand=True, padx=14, pady=2)
     tk.Label(preview_box, text=f"VISTA PREVIA ({area_w}x{area_h} px — MAXIMO 16 WOWS)", font=("Segoe UI", 8, "bold"), fg=THEME["text_muted"], bg=THEME["bg_bar"]).pack(pady=(5, 2))
@@ -92,15 +96,15 @@ def open_multibox_window(parent, on_launch_multibox_cb):
     preview_canvas.pack(fill="both", expand=True, padx=12, pady=(2, 8))
 
     slots_outer = tk.Frame(win, bg=THEME["bg_bar"], highlightbackground=THEME["border"], highlightthickness=1)
-    slots_outer.pack(fill="both", expand=True, padx=14, pady=(6, 4))
+    slots_outer.pack(side="bottom", fill="x", expand=False, padx=14, pady=(4, 4))
 
-    slots_canvas = tk.Canvas(slots_outer, bg=THEME["bg_panel"], highlightthickness=0)
+    slots_canvas = tk.Canvas(slots_outer, height=48, bg=THEME["bg_panel"], highlightthickness=0)
     slots_sb = ttk.Scrollbar(slots_outer, orient="vertical", command=slots_canvas.yview)
     slots_inner = tk.Frame(slots_canvas, bg=THEME["bg_panel"])
 
     slots_inner.bind("<Configure>", lambda _e: slots_canvas.configure(scrollregion=slots_canvas.bbox("all")))
     win_id = slots_canvas.create_window((0, 0), window=slots_inner, anchor="nw")
-    slots_canvas.bind("<Configure>", lambda e: (slots_canvas.itemconfig(win_id, width=e.width), layout_slot_rows()))
+    slots_canvas.bind("<Configure>", lambda e: (slots_canvas.itemconfig(win_id, width=e.width), layout_slot_rows(force=True)))
     slots_canvas.configure(yscrollcommand=slots_sb.set)
     slots_canvas.pack(side="left", fill="both", expand=True)
     slots_sb.pack(side="right", fill="y")
@@ -157,34 +161,49 @@ def open_multibox_window(parent, on_launch_multibox_cb):
             else:
                 body_y = (y1 + y2) // 2
             lbl = f"#{idx + 1} {acc_name}" if rows >= 3 else f"#{idx + 1} {acc_name}\n[{cli_name}] ({rw}x{rh})"
-            preview_canvas.create_text((x1 + x2) // 2, body_y, text=lbl, fill=THEME["text_main"], font=("Segoe UI", 7 if rows >= 3 else 8, "bold"), justify="center")
+            preview_canvas.create_text((x1 + x2) // 2, body_y, text=lbl, fill=THEME["text_main"], font=("Segoe UI", max(8, min(12, inner_w // (cols * 22))), "bold"), justify="center")
 
     last_slot_cols = [0]
 
     def layout_slot_rows(force=False):
         rows, cols = int(rows_var.get()), int(cols_var.get())
         cnt = rows * cols
-        avail_w = slots_canvas.winfo_width()
-        num_cols = 2 if avail_w >= 1060 else 1
+        avail_w = max(slots_canvas.winfo_width(), win.winfo_width() - 48)
+        if avail_w >= 1950:
+            num_cols = 4
+        elif avail_w >= 1450:
+            num_cols = 3
+        elif avail_w >= 960:
+            num_cols = 2
+        else:
+            num_cols = 1
+
         if not force and num_cols == last_slot_cols[0]:
             return
         last_slot_cols[0] = num_cols
-        for c in range(2):
+
+        for c in range(4):
             slots_inner.grid_columnconfigure(c, weight=1 if c < num_cols else 0)
+
         for idx, row in enumerate(slot_rows):
             row.pack_forget()
             row.grid_forget()
             if idx < cnt:
                 r_idx = idx // num_cols
                 c_idx = idx % num_cols
-                pad_x = (6, 3) if (num_cols == 2 and c_idx == 0) else ((3, 6) if num_cols == 2 else 6)
-                row.grid(row=r_idx, column=c_idx, sticky="ew", padx=pad_x, pady=3)
+                row.grid(row=r_idx, column=c_idx, sticky="ew", padx=4, pady=3)
+
+        visible_rows = max(1, (cnt + num_cols - 1) // num_cols)
+        target_h = min(320, visible_rows * 41 + 8)
+        slots_canvas.configure(height=target_h)
 
     def refresh_ui(_event=None):
         rows, cols = int(rows_var.get()), int(cols_var.get())
         cnt = rows * cols
         total_lbl.config(text=f"Total: {cnt} WoW{'s' if cnt > 1 else ''}")
         layout_slot_rows(force=True)
+        visible_rows = max(1, (cnt + (4 if win.winfo_width() >= 2100 else (3 if win.winfo_width() >= 1580 else (2 if win.winfo_width() >= 1050 else 1))) - 1) // (4 if win.winfo_width() >= 2100 else (3 if win.winfo_width() >= 1580 else (2 if win.winfo_width() >= 1050 else 1))))
+        slots_canvas.configure(height=min(300, visible_rows * 42 + 8))
         slots_canvas.yview_moveto(0)
         draw_preview()
 
@@ -252,7 +271,3 @@ def open_multibox_window(parent, on_launch_multibox_cb):
         win.destroy()
         on_launch_multibox_cb(plan)
 
-    bottom_bar = tk.Frame(win, bg=THEME["bg_panel"])
-    bottom_bar.pack(fill="x", padx=14, pady=(6, 10))
-    tk.Button(bottom_bar, text="LANZAR MULTIBOXING", font=("Segoe UI", 10, "bold"), fg="#04121f", bg=THEME["border_bright"], relief="flat", padx=18, pady=6, cursor="hand2", command=start_multibox).pack(side="right", padx=(6, 0))
-    tk.Button(bottom_bar, text="Cancelar", font=("Segoe UI", 9), fg=THEME["text_main"], bg=THEME["bg_card"], relief="flat", padx=14, pady=6, cursor="hand2", command=win.destroy).pack(side="right")

@@ -27,6 +27,8 @@ def _acquire_single_instance_lock():
 
 def _listen_restore_requests(app):
     user32 = ctypes.windll.user32
+    user32.DefWindowProcW.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.UINT, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM]
+    user32.DefWindowProcW.restype = ctypes.c_ssize_t
     msg_id = user32.RegisterWindowMessageW(_SHOW_MSG_NAME)
 
     @ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
