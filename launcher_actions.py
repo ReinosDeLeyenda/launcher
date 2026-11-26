@@ -70,10 +70,9 @@ def _set_wow_account_name(wow_dir, username):
     debug_log("AUTOLOGIN", f"Config.wtf actualizado en {cfg_path} con accountName='{username}'")
 
 
-def _find_wow_hwnd(pid):
+def _list_wow_hwnds():
     user32 = ctypes.windll.user32
-    found_by_pid = []
-    found_by_title = []
+    windows = []
 
     @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     def enum_cb(hwnd, _):
@@ -86,35 +85,44 @@ def _find_wow_hwnd(pid):
 
         proc_id = ctypes.c_ulong()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
-        if proc_id.value == pid:
-            found_by_pid.append(hwnd)
-
         buf = ctypes.create_unicode_buffer(128)
         user32.GetWindowTextW(hwnd, buf, 128)
-        if buf.value == "World of Warcraft":
-            found_by_title.append(hwnd)
+        windows.append((hwnd, proc_id.value, buf.value))
         return True
 
     user32.EnumWindows(enum_cb, 0)
-    if found_by_pid:
-        return found_by_pid[0]
-    if found_by_title:
-        return found_by_title[0]
+    return windows
+
+
+def _find_wow_hwnd(pid, existing_hwnds=None):
+    existing = existing_hwnds or set()
+    windows = _list_wow_hwnds()
+
+    for hwnd, proc_id, _ in windows:
+        if proc_id == pid:
+            return hwnd
+
+    for hwnd, _, title in windows:
+        if title == "World of Warcraft" and hwnd not in existing:
+            return hwnd
+
     return None
 
 
-def _auto_type_password_worker(pid, password):
+def _auto_type_password_worker(proc, password, existing_hwnds):
     user32 = ctypes.windll.user32
     hwnd_found = None
 
     for _ in range(60):
         time.sleep(0.5)
-        hwnd_found = _find_wow_hwnd(pid)
+        hwnd_found = _find_wow_hwnd(proc.pid, existing_hwnds)
         if hwnd_found:
+            break
+        if proc.poll() is not None and not existing_hwnds:
             break
 
     if not hwnd_found:
-        debug_log("AUTOLOGIN", "No se encontró la ventana de World of Warcraft.")
+        debug_log("AUTOLOGIN", f"No se encontró la ventana de WoW para PID={proc.pid}.")
         return
 
     time.sleep(4.5)
@@ -123,7 +131,11 @@ def _auto_type_password_worker(pid, password):
     user32.SetForegroundWindow(hwnd_found)
     time.sleep(0.3)
 
-    debug_log("AUTOLOGIN", f"Enviando contraseña por VkKeyScanW a HWND={hwnd_found}...")
+    if user32.GetForegroundWindow() != hwnd_found:
+        user32.SetForegroundWindow(hwnd_found)
+        time.sleep(0.2)
+
+    debug_log("AUTOLOGIN", f"Enviando contraseña por VkKeyScanW a PID={proc.pid} HWND={hwnd_found}...")
     _send_password_physical(password)
 
 class LauncherController:
@@ -266,9 +278,14 @@ class LauncherController:
             except Exception as e:
                 debug_log("AUTOLOGIN_ERR", f"No se pudo escribir Config.wtf: {e}")
 
+        existing_hwnds = {hwnd for hwnd, _, _ in _list_wow_hwnds()} if has_auto else set()
         proc = subprocess.Popen([exe], cwd=self.app.wow_dir)
         if has_auto:
             self.app.set_status(f"Iniciando WoW ({active})...")
-            threading.Thread(target=_auto_type_password_worker, args=(proc.pid, pwd), daemon=True).start()
+            threading.Thread(
+                target=_auto_type_password_worker,
+                args=(proc, pwd, existing_hwnds),
+                daemon=True,
+            ).start()
         else:
             self.app.set_status("World of Warcraft iniciado")

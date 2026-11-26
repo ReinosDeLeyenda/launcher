@@ -1,0 +1,40 @@
+name: Build & Release RDL Launcher
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias y PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pillow pystray pyinstaller
+
+      - name: Verificar sintaxis antes de compilar
+        run: python release.py --audit-only --no-cache
+
+      - name: Compilar RDL_Launcher.exe
+        run: |
+          python -m PyInstaller --clean --noconsole --onefile --name "RDL_Launcher" --add-data "logo.png;." main.py
+
+      - name: Publicar GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/RDL_Launcher.exe
+          generate_release_notes: true
