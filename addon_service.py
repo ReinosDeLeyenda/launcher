@@ -262,3 +262,26 @@ def download_and_install(wow_dir, repo_urls, target_names=None):
             shutil.copytree(src, dst)
 
         shutil.rmtree(temp_dir)
+
+
+def has_obsolete_modern_character_ui(wow_dir):
+    addons_dir = os.path.join(wow_dir, "Interface", "AddOns")
+    if not os.path.isdir(addons_dir):
+        return False
+    try:
+        return any(name.lower() == "moderncharacterui" for name in os.listdir(addons_dir))
+    except OSError:
+        return False
+
+
+def remove_addon_folders(wow_dir, folder_names):
+    addons_dir = os.path.join(wow_dir, "Interface", "AddOns")
+    if not os.path.isdir(addons_dir):
+        return
+    targets = {name.lower() for name in folder_names}
+    for entry in os.listdir(addons_dir):
+        if entry.lower() in targets:
+            full_path = os.path.join(addons_dir, entry)
+            if os.path.isdir(full_path):
+                shutil.rmtree(full_path)
+                debug_log("ADDONS", f"Addon eliminado: {full_path}")

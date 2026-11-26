@@ -65,7 +65,8 @@ def _listen_restore_requests(app):
         user32.TranslateMessage(ctypes.byref(msg))
         user32.DispatchMessageW(ctypes.byref(msg))
 
-from addon_service import scan_local_addons
+from tkinter import messagebox
+from addon_service import has_obsolete_modern_character_ui, scan_local_addons
 from addons_dialog import open_addons_window
 from chat_dialog import WoWChatWindow
 from multibox_dialog import open_multibox_window
@@ -89,6 +90,7 @@ class RDLLauncher(tk.Tk):
         self.chat_window = None
         self.active_account_alias = ""
         self.addons_checking = False
+        self._warned_obsolete_dirs = set()
         self.spinner_idx = 0
 
         self.ctrl = LauncherController(self)
@@ -210,6 +212,54 @@ class RDLLauncher(tk.Tk):
         self.update_btn = tk.Button(self.update_banner, text="⬇ Actualizar ahora", font=("Segoe UI", 8, "bold"), fg=THEME["text_main"], bg="#04121f", relief="flat", padx=12, pady=3, cursor="hand2")
         self.update_btn.pack(side="right", padx=10, pady=4)
 
+        self.obsolete_addon_banner = tk.Frame(self, bg="#ff7043", highlightbackground="#ffccbc", highlightthickness=1)
+        self.obsolete_addon_lbl = tk.Label(
+            self.obsolete_addon_banner,
+            text="⚠️ Addon obsoleto detectado: ModernCharacterUI está obsoleto. Elimínalo y reemplázalo por ModernUI.",
+            font=("Segoe UI", 9, "bold"),
+            fg="#04121f",
+            bg="#ff7043",
+            padx=12,
+            pady=5,
+        )
+        self.obsolete_addon_lbl.pack(side="left")
+        tk.Button(
+            self.obsolete_addon_banner,
+            text="Abrir Addons",
+            font=("Segoe UI", 8, "bold"),
+            fg=THEME["text_main"],
+            bg="#04121f",
+            relief="flat",
+            padx=10,
+            pady=3,
+            cursor="hand2",
+            command=self.open_addons_dialog,
+        ).pack(side="right", padx=10, pady=4)
+
+        self.obsolete_addon_banner = tk.Frame(self, bg="#ff7043", highlightbackground="#ffccbc", highlightthickness=1)
+        self.obsolete_addon_lbl = tk.Label(
+            self.obsolete_addon_banner,
+            text="⚠️ Addon obsoleto detectado: ModernCharacterUI está obsoleto. Elimínalo y reemplázalo por ModernUI.",
+            font=("Segoe UI", 9, "bold"),
+            fg="#04121f",
+            bg="#ff7043",
+            padx=12,
+            pady=5,
+        )
+        self.obsolete_addon_lbl.pack(side="left")
+        tk.Button(
+            self.obsolete_addon_banner,
+            text="Abrir Addons",
+            font=("Segoe UI", 8, "bold"),
+            fg=THEME["text_main"],
+            bg="#04121f",
+            relief="flat",
+            padx=10,
+            pady=3,
+            cursor="hand2",
+            command=self.open_addons_dialog,
+        ).pack(side="right", padx=10, pady=4)
+
         center = tk.Frame(self, bg=THEME["bg_main"])
         center.pack(fill="both", expand=True, padx=10, pady=(4, 10))
         center.grid_columnconfigure(0, weight=3)
@@ -290,6 +340,7 @@ class RDLLauncher(tk.Tk):
         )
         self.wow_warn_lbl.pack(fill="x", padx=20, pady=(0, 14))
         self.check_wow_exe_warning()
+        self.check_obsolete_addons()
 
     def check_wow_exe_warning(self):
         exe_path = os.path.join(self.wow_dir, "Wow.exe")
@@ -297,6 +348,25 @@ class RDLLauncher(tk.Tk):
             self.wow_warn_lbl.config(text="⚠️ No se encontró Wow.exe en la carpeta configurada.\nPulsa en '⚙ Ajustes' para seleccionar la ruta del juego.")
         else:
             self.wow_warn_lbl.config(text="")
+
+    def check_obsolete_addons(self):
+        if has_obsolete_modern_character_ui(self.wow_dir):
+            self.obsolete_addon_banner.pack(fill="x", padx=10, pady=(0, 6), after=self.header)
+            norm_dir = os.path.normcase(os.path.abspath(self.wow_dir))
+            if norm_dir not in self._warned_obsolete_dirs:
+                self._warned_obsolete_dirs.add(norm_dir)
+                self.after(
+                    300,
+                    lambda: messagebox.showwarning(
+                        "Addon obsoleto: ModernCharacterUI",
+                        "Se ha detectado el addon 'ModernCharacterUI' en tu carpeta de AddOns.\n\n"
+                        "Este addon está obsoleto y puede causar errores en el cliente.\n"
+                        "Por favor, elimina la carpeta 'ModernCharacterUI' y reemplázalo por 'ModernUI' desde el Gestor de Addons.",
+                        parent=self,
+                    ),
+                )
+        else:
+            self.obsolete_addon_banner.pack_forget()
 
     def show_launcher_update_banner(self, remote_ver, download_url):
         self.update_lbl.config(text=f"🚀 ¡Nueva versión del Launcher disponible: v{remote_ver} (actual: v{LAUNCHER_VERSION})!")
@@ -317,6 +387,7 @@ class RDLLauncher(tk.Tk):
 
     def stop_addons_spinner(self):
         self.addons_checking = False
+        self._warned_obsolete_dirs = set()
         self.update_addons_button_state()
         self.notify_addons_dialog()
 
@@ -352,6 +423,7 @@ class RDLLauncher(tk.Tk):
             self.wow_dir = clis[cname]
             self.addons_info = scan_local_addons(self.wow_dir)
             self.check_wow_exe_warning()
+            self.check_obsolete_addons()
             self.ctrl.load_addons()
 
         for cname in clients.keys():

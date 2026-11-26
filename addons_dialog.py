@@ -1,4 +1,6 @@
 import tkinter as tk
+from tkinter import messagebox
+from addon_service import remove_addon_folders
 from config import THEME, extract_github_slug
 
 
@@ -95,6 +97,8 @@ def open_addons_window(parent, addons_info, repos_order, is_checking, on_refresh
 
     def get_priority(item):
         name, local_ver, remote_ver, repo_url, _ = item
+        if name.lower() == "moderncharacterui":
+            return (-1, 0, name.lower())
         if repo_url == "Local":
             return (3, 999, name.lower())
 
@@ -117,7 +121,14 @@ def open_addons_window(parent, addons_info, repos_order, is_checking, on_refresh
             is_only_local = (repo_url == "Local")
             mod_tag = f" (+{len(modules) - 1} módulos)" if len(modules) > 1 else ""
 
-            if is_only_local:
+            is_obsolete_mcui = (name.lower() == "moderncharacterui")
+            if is_obsolete_mcui:
+                status_txt = f"⚠️ OBSOLETO (v{local_ver}) — Reemplazar por ModernUI"
+                color = THEME["warning"]
+                btn_txt = "Reemplazar por ModernUI"
+                btn_bg = THEME["warning"]
+                border_col = THEME["warning"]
+            elif is_only_local:
                 status_txt = f"Instalado localmente (v{local_ver})"
                 color = THEME["text_muted"]
                 btn_txt = "Local"
@@ -161,7 +172,33 @@ def open_addons_window(parent, addons_info, repos_order, is_checking, on_refresh
             l2 = tk.Label(info_col, text=status_txt, font=("Segoe UI", 8), fg=color, bg=THEME["bg_card"], anchor="w")
             l2.pack(fill="x")
 
-            btn_fg = "#04121f" if btn_txt in ("Actualizar", "Instalar") else THEME["text_main"]
+            def on_delete_obsolete(mods=modules, addon_name=name):
+                if not messagebox.askyesno(
+                    "Reemplazar addon obsoleto",
+                    f"¿Quieres eliminar '{addon_name}' e instalar 'ModernUI' automáticamente en su lugar?",
+                    parent=win,
+                ):
+                    return
+                try:
+                    remove_addon_folders(parent.wow_dir, mods)
+                    if hasattr(parent, "check_obsolete_addons"):
+                        parent.check_obsolete_addons()
+
+                    modern_ui_mods = ["ModernUI"]
+                    modern_ui_repos = None
+                    for item_name, _, _, item_repo, item_mods in updated_info:
+                        if item_name.lower() == "modernui" and item_repo != "Local":
+                            modern_ui_mods = item_mods
+                            modern_ui_repos = [item_repo]
+                            break
+
+                    on_install_cb(modern_ui_mods, modern_ui_repos)
+                except Exception as exc:
+                    messagebox.showerror("Error al reemplazar", str(exc), parent=win)
+
+            is_disabled = is_only_local and not is_obsolete_mcui
+            btn_fg = "#04121f" if btn_txt in ("Actualizar", "Instalar", "Reemplazar por ModernUI") else THEME["text_main"]
+            btn_cmd = on_delete_obsolete if is_obsolete_mcui else (lambda mods=modules, r=repo_url: on_install_cb(mods, [r]))
             btn = tk.Button(
                 row,
                 text=btn_txt,
@@ -171,9 +208,9 @@ def open_addons_window(parent, addons_info, repos_order, is_checking, on_refresh
                 relief="flat",
                 padx=14,
                 pady=5,
-                state="disabled" if is_only_local else "normal",
-                cursor="arrow" if is_only_local else "hand2",
-                command=lambda mods=modules, r=repo_url: on_install_cb(mods, [r]),
+                state="disabled" if is_disabled else "normal",
+                cursor="arrow" if is_disabled else "hand2",
+                command=btn_cmd,
             )
             btn.pack(side="right", padx=10)
 
