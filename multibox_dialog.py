@@ -85,11 +85,11 @@ def open_multibox_window(parent, on_launch_multibox_cb):
 
     tk.Checkbutton(grid_bar, text="Mostrar bordes", variable=borders_var, font=("Segoe UI", 9, "bold"), fg=THEME["text_main"], bg=THEME["bg_card"], selectcolor=THEME["bg_bar"], activebackground=THEME["bg_card"], activeforeground=THEME["text_title"], cursor="hand2", command=lambda: draw_preview()).pack(side="right", padx=10)
     preview_box = tk.Frame(win, bg=THEME["bg_bar"], highlightbackground=THEME["border"], highlightthickness=1)
-    preview_box.pack(fill="x", padx=14, pady=2)
+    preview_box.pack(fill="both", expand=True, padx=14, pady=2)
     tk.Label(preview_box, text=f"VISTA PREVIA ({area_w}x{area_h} px — MAXIMO 16 WOWS)", font=("Segoe UI", 8, "bold"), fg=THEME["text_muted"], bg=THEME["bg_bar"]).pack(pady=(5, 2))
 
     preview_canvas = tk.Canvas(preview_box, height=205, bg="#040e18", highlightthickness=0)
-    preview_canvas.pack(fill="x", padx=12, pady=(2, 8))
+    preview_canvas.pack(fill="both", expand=True, padx=12, pady=(2, 8))
 
     slots_outer = tk.Frame(win, bg=THEME["bg_bar"], highlightbackground=THEME["border"], highlightthickness=1)
     slots_outer.pack(fill="both", expand=True, padx=14, pady=(6, 4))
@@ -100,7 +100,7 @@ def open_multibox_window(parent, on_launch_multibox_cb):
 
     slots_inner.bind("<Configure>", lambda _e: slots_canvas.configure(scrollregion=slots_canvas.bbox("all")))
     win_id = slots_canvas.create_window((0, 0), window=slots_inner, anchor="nw")
-    slots_canvas.bind("<Configure>", lambda e: slots_canvas.itemconfig(win_id, width=e.width))
+    slots_canvas.bind("<Configure>", lambda e: (slots_canvas.itemconfig(win_id, width=e.width), layout_slot_rows()))
     slots_canvas.configure(yscrollcommand=slots_sb.set)
     slots_canvas.pack(side="left", fill="both", expand=True)
     slots_sb.pack(side="right", fill="y")
@@ -159,12 +159,32 @@ def open_multibox_window(parent, on_launch_multibox_cb):
             lbl = f"#{idx + 1} {acc_name}" if rows >= 3 else f"#{idx + 1} {acc_name}\n[{cli_name}] ({rw}x{rh})"
             preview_canvas.create_text((x1 + x2) // 2, body_y, text=lbl, fill=THEME["text_main"], font=("Segoe UI", 7 if rows >= 3 else 8, "bold"), justify="center")
 
+    last_slot_cols = [0]
+
+    def layout_slot_rows(force=False):
+        rows, cols = int(rows_var.get()), int(cols_var.get())
+        cnt = rows * cols
+        avail_w = slots_canvas.winfo_width()
+        num_cols = 2 if avail_w >= 1060 else 1
+        if not force and num_cols == last_slot_cols[0]:
+            return
+        last_slot_cols[0] = num_cols
+        for c in range(2):
+            slots_inner.grid_columnconfigure(c, weight=1 if c < num_cols else 0)
+        for idx, row in enumerate(slot_rows):
+            row.pack_forget()
+            row.grid_forget()
+            if idx < cnt:
+                r_idx = idx // num_cols
+                c_idx = idx % num_cols
+                pad_x = (6, 3) if (num_cols == 2 and c_idx == 0) else ((3, 6) if num_cols == 2 else 6)
+                row.grid(row=r_idx, column=c_idx, sticky="ew", padx=pad_x, pady=3)
+
     def refresh_ui(_event=None):
         rows, cols = int(rows_var.get()), int(cols_var.get())
         cnt = rows * cols
         total_lbl.config(text=f"Total: {cnt} WoW{'s' if cnt > 1 else ''}")
-        for idx, row in enumerate(slot_rows):
-            row.pack(fill="x", padx=6, pady=3) if idx < cnt else row.pack_forget()
+        layout_slot_rows(force=True)
         slots_canvas.yview_moveto(0)
         draw_preview()
 
