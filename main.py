@@ -1,5 +1,69 @@
+import ctypes.wintypes
 import os
 import tkinter as tk
+
+import ctypes
+import threading
+
+_MUTEX_NAME = "Global\\RDL_Launcher_SingleInstance_Mutex"
+_SHOW_MSG_NAME = "RDL_Launcher_ShowExistingWindow"
+
+
+def _notify_existing_instance():
+    user32 = ctypes.windll.user32
+    msg_id = user32.RegisterWindowMessageW(_SHOW_MSG_NAME)
+    if msg_id:
+        user32.PostMessageW(0xFFFF, msg_id, 0, 0)  # HWND_BROADCAST = 0xFFFF
+
+
+def _acquire_single_instance_lock():
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.CreateMutexW(None, False, _MUTEX_NAME)
+    if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        _notify_existing_instance()
+        return None
+    return handle
+
+
+def _listen_restore_requests(app):
+    user32 = ctypes.windll.user32
+    msg_id = user32.RegisterWindowMessageW(_SHOW_MSG_NAME)
+
+    @ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
+    def wnd_proc(hwnd, msg, wparam, lparam):
+        if msg == msg_id:
+            app.after(0, app.ctrl.restore_from_tray)
+            return 0
+        return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
+    hinst = ctypes.windll.kernel32.GetModuleHandleW(None)
+    cls_name = "RDLLauncherIPCClass"
+
+    class WNDCLASSW(ctypes.Structure):
+        _fields_ = [
+            ("style", ctypes.c_uint),
+            ("lpfnWndProc", ctypes.c_void_p),
+            ("cbClsExtra", ctypes.c_int),
+            ("cbWndExtra", ctypes.c_int),
+            ("hInstance", ctypes.c_void_p),
+            ("hIcon", ctypes.c_void_p),
+            ("hCursor", ctypes.c_void_p),
+            ("hbrBackground", ctypes.c_void_p),
+            ("lpszMenuName", ctypes.c_wchar_p),
+            ("lpszClassName", ctypes.c_wchar_p),
+        ]
+
+    wc = WNDCLASSW()
+    wc.lpfnWndProc = ctypes.cast(wnd_proc, ctypes.c_void_p)
+    wc.hInstance = hinst
+    wc.lpszClassName = cls_name
+    user32.RegisterClassW(ctypes.byref(wc))
+
+    hwnd = user32.CreateWindowExW(0, cls_name, "", 0, 0, 0, 0, 0, None, None, hinst, None)
+    msg = ctypes.wintypes.MSG()
+    while user32.GetMessageW(ctypes.byref(msg), hwnd, 0, 0) > 0:
+        user32.TranslateMessage(ctypes.byref(msg))
+        user32.DispatchMessageW(ctypes.byref(msg))
 
 from addon_service import scan_local_addons
 from addons_dialog import open_addons_window
@@ -31,6 +95,7 @@ class RDLLauncher(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.ctrl.on_close_window)
 
         self.build_ui()
+        threading.Thread(target=_listen_restore_requests, args=(self,), daemon=True).start()
         self.ctrl.refresh_all()
 
     def build_ui(self):
@@ -361,4 +426,6 @@ class RDLLauncher(tk.Tk):
 
 
 if __name__ == "__main__":
-    RDLLauncher().mainloop()
+    _instance_mutex = _acquire_single_instance_lock()
+    if _instance_mutex:
+        RDLLauncher().mainloop()
