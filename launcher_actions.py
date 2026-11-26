@@ -323,7 +323,7 @@ def _prepare_wow_config_multibox(wow_dir, username=None):
         f.write(content)
 
 
-def _apply_borderless_rect(hwnd, rect):
+def _apply_window_rect(hwnd, rect, show_borders=False):
     user32 = ctypes.windll.user32
     x, y, w, h = rect
     GWL_STYLE = -16
@@ -334,7 +334,10 @@ def _apply_borderless_rect(hwnd, rect):
     SWP_SHOWWINDOW = 0x0040
 
     style = user32.GetWindowLongW(hwnd, GWL_STYLE)
-    style &= ~(WS_CAPTION | WS_THICKFRAME)
+    if show_borders:
+        style |= (WS_CAPTION | WS_THICKFRAME)
+    else:
+        style &= ~(WS_CAPTION | WS_THICKFRAME)
     user32.SetWindowLongW(hwnd, GWL_STYLE, style)
     user32.ShowWindow(hwnd, 9)
     user32.SetWindowPos(hwnd, 0, x, y, w, h, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_SHOWWINDOW)
@@ -346,7 +349,10 @@ def _multibox_launch_worker(app, plan):
     clients, _ = load_clients()
     launched = []
 
-    for idx, (acc_alias, cli_name, rect) in enumerate(plan):
+    for idx, item in enumerate(plan):
+        acc_alias, cli_name, rect = item[0], item[1], item[2]
+        show_borders = item[3] if len(item) > 3 else False
+
         wow_dir = clients.get(cli_name)
         if not wow_dir:
             continue
@@ -375,8 +381,8 @@ def _multibox_launch_worker(app, plan):
                 break
 
         if hwnd_found:
-            _apply_borderless_rect(hwnd_found, rect)
-            launched.append((hwnd_found, rect, pwd))
+            _apply_window_rect(hwnd_found, rect, show_borders)
+            launched.append((hwnd_found, rect, show_borders, pwd))
         else:
             debug_log("MULTIBOX_ERR", f"No se detecto ventana para WoW #{idx + 1} (PID={proc.pid})")
 
@@ -385,8 +391,8 @@ def _multibox_launch_worker(app, plan):
         return
 
     time.sleep(4.2)
-    for hwnd, rect, pwd in launched:
-        _apply_borderless_rect(hwnd, rect)
+    for hwnd, rect, show_borders, pwd in launched:
+        _apply_window_rect(hwnd, rect, show_borders)
         if pwd:
             user32.SetForegroundWindow(hwnd)
             time.sleep(0.25)
