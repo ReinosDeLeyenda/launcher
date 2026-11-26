@@ -4,6 +4,7 @@ import tkinter as tk
 from addon_service import scan_local_addons
 from addons_dialog import open_addons_window
 from chat_dialog import WoWChatWindow
+from multibox_dialog import open_multibox_window
 from config import LAUNCHER_VERSION, THEME, load_accounts, load_clients, load_settings, save_accounts, save_clients
 from launcher_actions import LauncherController
 from settings_dialog import find_realmlist_file, open_settings_window
@@ -91,6 +92,21 @@ class RDLLauncher(tk.Tk):
             pady=4,
             cursor="hand2",
             command=self.open_chat_dialog,
+        ).pack(side="right", padx=(6, 0), pady=6)
+
+        tk.Button(
+            self.header,
+            text="Multibox",
+            font=("Segoe UI", 9, "bold"),
+            fg=THEME["text_title"],
+            bg=THEME["bg_card"],
+            activebackground=THEME["accent"],
+            activeforeground="#04121f",
+            relief="flat",
+            padx=10,
+            pady=4,
+            cursor="hand2",
+            command=self.open_multibox_dialog,
         ).pack(side="right", padx=(6, 0), pady=6)
 
         # 3. Desplegable de seleccion de cuenta (a la izquierda de Addons)
@@ -296,6 +312,9 @@ class RDLLauncher(tk.Tk):
 
         self.active_account_alias = active if active in accounts else ""
         self.account_var.set(f"👤 {self.active_account_alias}" if self.active_account_alias else "👤 Manual")
+
+    def open_multibox_dialog(self):
+        open_multibox_window(self, self.ctrl.launch_multibox)
 
     def open_chat_dialog(self):
         if self.chat_window is not None:

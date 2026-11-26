@@ -9,7 +9,7 @@ from tkinter import messagebox
 import webbrowser
 
 from addon_service import check_github_addons, download_and_install, scan_local_addons
-from config import debug_log, load_accounts
+from config import debug_log, load_accounts, load_clients
 from news_service import fetch_latest_news, load_local_logo
 from tray_service import TrayManager
 from ui_widgets import render_news_cards
@@ -259,6 +259,9 @@ class LauncherController:
             self.app.check_wow_exe_warning()
         self.load_addons()
 
+    def launch_multibox(self, plan):
+        threading.Thread(target=_multibox_launch_worker, args=(self.app, plan), daemon=True).start()
+
     def launch_wow(self):
         exe = os.path.join(self.app.wow_dir, "Wow.exe")
         if not os.path.exists(exe):
@@ -289,3 +292,105 @@ class LauncherController:
             ).start()
         else:
             self.app.set_status("World of Warcraft iniciado")
+
+
+def _prepare_wow_config_multibox(wow_dir, username=None):
+    wtf_dir = os.path.join(wow_dir, "WTF")
+    os.makedirs(wtf_dir, exist_ok=True)
+    cfg_path = os.path.join(wtf_dir, "Config.wtf")
+
+    content = ""
+    if os.path.isfile(cfg_path):
+        with open(cfg_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+
+    settings = {
+        "gxWindow": "1",
+        "gxMaximize": "0",
+    }
+    if username:
+        settings["accountName"] = username
+
+    for key, val in settings.items():
+        line = f'SET {key} "{val}"'
+        pattern = rf'^SET\s+{re.escape(key)}\s+".*?"'
+        if re.search(pattern, content, re.MULTILINE | re.IGNORECASE):
+            content = re.sub(pattern, line, content, flags=re.MULTILINE | re.IGNORECASE)
+        else:
+            content = content.rstrip() + ("\n" if content.strip() else "") + line + "\n"
+
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
+def _apply_borderless_rect(hwnd, rect):
+    user32 = ctypes.windll.user32
+    x, y, w, h = rect
+    GWL_STYLE = -16
+    WS_CAPTION = 0x00C00000
+    WS_THICKFRAME = 0x00040000
+    SWP_FRAMECHANGED = 0x0020
+    SWP_NOZORDER = 0x0004
+    SWP_SHOWWINDOW = 0x0040
+
+    style = user32.GetWindowLongW(hwnd, GWL_STYLE)
+    style &= ~(WS_CAPTION | WS_THICKFRAME)
+    user32.SetWindowLongW(hwnd, GWL_STYLE, style)
+    user32.ShowWindow(hwnd, 9)
+    user32.SetWindowPos(hwnd, 0, x, y, w, h, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_SHOWWINDOW)
+
+
+def _multibox_launch_worker(app, plan):
+    user32 = ctypes.windll.user32
+    accounts, _ = load_accounts()
+    clients, _ = load_clients()
+    launched = []
+
+    for idx, (acc_alias, cli_name, rect) in enumerate(plan):
+        wow_dir = clients.get(cli_name)
+        if not wow_dir:
+            continue
+        exe = os.path.join(wow_dir, "Wow.exe")
+        if not os.path.isfile(exe):
+            debug_log("MULTIBOX_ERR", f"No existe Wow.exe en {wow_dir}")
+            continue
+
+        has_auto = acc_alias != "Manual" and acc_alias in accounts
+        user, pwd = accounts[acc_alias] if has_auto else (None, None)
+
+        try:
+            _prepare_wow_config_multibox(wow_dir, user)
+        except Exception as e:
+            debug_log("MULTIBOX_ERR", f"Error preparando Config.wtf: {e}")
+
+        existing_hwnds = {hwnd for hwnd, _, _ in _list_wow_hwnds()}
+        app.set_status(f"Multibox: iniciando ventana #{idx + 1} ({acc_alias})...")
+        proc = subprocess.Popen([exe], cwd=wow_dir)
+
+        hwnd_found = None
+        for _ in range(60):
+            time.sleep(0.4)
+            hwnd_found = _find_wow_hwnd(proc.pid, existing_hwnds)
+            if hwnd_found:
+                break
+
+        if hwnd_found:
+            _apply_borderless_rect(hwnd_found, rect)
+            launched.append((hwnd_found, rect, pwd))
+        else:
+            debug_log("MULTIBOX_ERR", f"No se detecto ventana para WoW #{idx + 1} (PID={proc.pid})")
+
+    if not launched:
+        app.set_status("Multibox: no se pudo iniciar ninguna ventana")
+        return
+
+    time.sleep(4.2)
+    for hwnd, rect, pwd in launched:
+        _apply_borderless_rect(hwnd, rect)
+        if pwd:
+            user32.SetForegroundWindow(hwnd)
+            time.sleep(0.25)
+            _send_password_physical(pwd)
+            time.sleep(0.2)
+
+    app.set_status(f"Multibox activo ({len(launched)} ventanas)")

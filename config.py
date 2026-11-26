@@ -25,7 +25,7 @@ HOST_RAW = "raw." + "githubusercontent.com"
 HOST_WEB = "github.com"
 DEFAULT_REPO_URL = f"https://{HOST_WEB}/ReinosDeLeyenda/addons"
 
-LAUNCHER_VERSION = "1.0.2"
+LAUNCHER_VERSION = "1.0.3"
 LAUNCHER_REPO = "ReinosDeLeyenda/launcher"
 LAUNCHER_RELEASES_URL = f"https://{HOST_WEB}/{LAUNCHER_REPO}/releases"
 LAUNCHER_LATEST_URL = f"{LAUNCHER_RELEASES_URL}/latest"
@@ -229,3 +229,37 @@ def save_accounts(accounts, active_alias=""):
         debug_log("ACCOUNTS", f"Cuentas cifradas con DPAPI y guardadas ({len(accounts)}). Activa: '{active_alias}'")
     except Exception as e:
         debug_log("ACCOUNTS_ERR", f"Error guardando cuentas: {e}")
+
+
+def load_multibox_profiles():
+    cfg = _new_parser()
+    if not os.path.exists(INI_FILE):
+        return {}
+    cfg.read(INI_FILE, encoding="utf-8")
+    profiles = {}
+    if cfg.has_section("MultiboxProfiles"):
+        for name, raw in cfg.items("MultiboxProfiles"):
+            slots = []
+            for part in raw.split(","):
+                part = part.strip()
+                if "|" in part:
+                    acc, cli = part.split("|", 1)
+                    slots.append((acc.strip(), cli.strip()))
+            if 2 <= len(slots) <= 4:
+                profiles[name] = slots
+    return profiles
+
+
+def save_multibox_profiles(profiles):
+    cfg = _new_parser()
+    if os.path.exists(INI_FILE):
+        cfg.read(INI_FILE, encoding="utf-8")
+    cfg["MultiboxProfiles"] = {}
+    for name, slots in profiles.items():
+        cfg["MultiboxProfiles"][name] = ",".join(f"{acc}|{cli}" for acc, cli in slots)
+    try:
+        with open(INI_FILE, "w", encoding="utf-8") as f:
+            cfg.write(f)
+        debug_log("MULTIBOX", f"Perfiles multibox guardados ({len(profiles)}).")
+    except Exception as e:
+        debug_log("MULTIBOX_ERR", f"Error guardando perfiles multibox: {e}")
