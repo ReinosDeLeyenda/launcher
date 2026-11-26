@@ -2,6 +2,7 @@
 rdl_launcher.ini
 rdl_launcher_config.json
 addons_cache.json
+plugin_completo.txt
 
 # Logs de sesión y temporales
 launcher.log

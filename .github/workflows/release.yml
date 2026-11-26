@@ -27,7 +27,7 @@ jobs:
           pip install requests beautifulsoup4 pillow pystray pyinstaller
 
       - name: Verificar sintaxis antes de compilar
-        run: python release.py --audit-only --no-cache
+        run: python -m compileall -q .
 
       - name: Compilar RDL_Launcher.exe
         run: |
