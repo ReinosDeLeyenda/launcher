@@ -29,8 +29,9 @@ def compute_grid_rects(rows, cols, area_x, area_y, area_w, area_h):
 def open_multibox_window(parent, on_launch_multibox_cb):
     win = tk.Toplevel(parent)
     win.title("Multiboxing - Reinos de Leyenda")
-    win.geometry("740x670")
-    win.resizable(False, False)
+    win.geometry("760x680")
+    win.minsize(740, 650)
+    win.resizable(True, True)
     win.configure(bg=THEME["bg_panel"])
     win.transient(parent)
     win.grab_set()
@@ -87,9 +88,8 @@ def open_multibox_window(parent, on_launch_multibox_cb):
     preview_box.pack(fill="x", padx=14, pady=2)
     tk.Label(preview_box, text=f"VISTA PREVIA ({area_w}x{area_h} px — MAXIMO 16 WOWS)", font=("Segoe UI", 8, "bold"), fg=THEME["text_muted"], bg=THEME["bg_bar"]).pack(pady=(5, 2))
 
-    canvas_w, canvas_h = 680, 195
-    preview_canvas = tk.Canvas(preview_box, width=canvas_w, height=canvas_h, bg="#040e18", highlightthickness=0)
-    preview_canvas.pack(pady=(2, 8))
+    preview_canvas = tk.Canvas(preview_box, height=205, bg="#040e18", highlightthickness=0)
+    preview_canvas.pack(fill="x", padx=12, pady=(2, 8))
 
     slots_outer = tk.Frame(win, bg=THEME["bg_bar"], highlightbackground=THEME["border"], highlightthickness=1)
     slots_outer.pack(fill="both", expand=True, padx=14, pady=(6, 4))
@@ -128,17 +128,25 @@ def open_multibox_window(parent, on_launch_multibox_cb):
             w.bind("<MouseWheel>", on_wheel)
         slot_rows.append(row)
 
-    def draw_preview():
+    def draw_preview(_event=None):
         preview_canvas.delete("all")
+        cw = max(preview_canvas.winfo_width(), 300)
+        ch = max(preview_canvas.winfo_height(), 140)
         rows, cols, show_borders = int(rows_var.get()), int(cols_var.get()), borders_var.get()
         rects = compute_grid_rects(rows, cols, area_x, area_y, area_w, area_h)
-        pad, inner_w, inner_h = 6, canvas_w - 12, canvas_h - 12
-        preview_canvas.create_rectangle(pad - 2, pad - 2, pad + inner_w + 2, pad + inner_h + 2, outline=THEME["border"], width=1)
+        pad = 6
+        avail_w, avail_h = cw - pad * 2, ch - pad * 2
+        scale = min(avail_w / area_w, avail_h / area_h)
+        inner_w = int(area_w * scale)
+        inner_h = int(area_h * scale)
+        off_x = pad + (avail_w - inner_w) // 2
+        off_y = pad + (avail_h - inner_h) // 2
+        preview_canvas.create_rectangle(off_x - 2, off_y - 2, off_x + inner_w + 2, off_y + inner_h + 2, outline=THEME["border"], width=1)
         for idx, (rx, ry, rw, rh) in enumerate(rects):
-            x1 = pad + int(((rx - area_x) / area_w) * inner_w) + 2
-            y1 = pad + int(((ry - area_y) / area_h) * inner_h) + 2
-            x2 = pad + int(((rx - area_x + rw) / area_w) * inner_w) - 2
-            y2 = pad + int(((ry - area_y + rh) / area_h) * inner_h) - 2
+            x1 = off_x + int(((rx - area_x) / area_w) * inner_w) + 2
+            y1 = off_y + int(((ry - area_y) / area_h) * inner_h) + 2
+            x2 = off_x + int(((rx - area_x + rw) / area_w) * inner_w) - 2
+            y2 = off_y + int(((ry - area_y + rh) / area_h) * inner_h) - 2
             acc_name, cli_name = slot_vars[idx][0].get(), slot_vars[idx][1].get()
             preview_canvas.create_rectangle(x1, y1, x2, y2, fill=THEME["bg_card"], outline=THEME["border_bright"], width=1)
             if show_borders:
@@ -162,6 +170,7 @@ def open_multibox_window(parent, on_launch_multibox_cb):
 
     cb_cols.bind("<<ComboboxSelected>>", refresh_ui)
     cb_rows.bind("<<ComboboxSelected>>", refresh_ui)
+    preview_canvas.bind("<Configure>", draw_preview)
 
     def load_selected_profile(_event=None):
         pname = prof_var.get()
