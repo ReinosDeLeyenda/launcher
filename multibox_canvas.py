@@ -35,7 +35,23 @@ class MultiboxPreviewCanvas(tk.Frame):
     def clear_selection(self):
         self.sel_idx = -1
 
+    def _find_monitor_at(self, x, y):
+        for m_idx, (mx1, my1, mx2, my2) in enumerate(self.mon_boxes):
+            if mx1 <= x <= mx2 and my1 <= y <= my2:
+                return m_idx
+        return -1
+
     def _on_press(self, event):
+        is_ctrl = bool(event.state & 0x0004)
+        is_shift = bool(event.state & 0x0001)
+        if is_ctrl or is_shift:
+            target_mon = self._find_monitor_at(event.x, event.y)
+            if target_mon != -1:
+                mode = "h_split" if is_ctrl else "v_split"
+                self.cb["split_monitor"](target_mon, mode)
+                self.drag_state = {"slot": -1, "x": event.x, "y": event.y, "dragging": False}
+                return
+
         clicked = -1
         for idx, (x1, y1, x2, y2) in enumerate(self.rect_boxes):
             if x1 <= event.x <= x2 and y1 <= event.y <= y2:
@@ -141,7 +157,7 @@ class MultiboxPreviewCanvas(tk.Frame):
         span_w = max(1, max_x - min_x)
         span_h = max(1, max_y - min_y)
 
-        self.title_lbl.config(text=f"VISTA PREVIA ({span_w}x{span_h} px) — Clic derecho en un monitor para dividirlo | Arrastra WoWs a los huecos")
+        self.title_lbl.config(text=f"VISTA PREVIA ({span_w}x{span_h} px) — Ctrl+Clic: Izq/Der | Mayús+Clic: Arriba/Abajo | Clic der.: Opciones | Arrastra a huecos")
 
         pad = 8
         avail_w, avail_h = cw - pad * 2, ch - pad * 2

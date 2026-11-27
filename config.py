@@ -25,7 +25,7 @@ HOST_RAW = "raw." + "githubusercontent.com"
 HOST_WEB = "github.com"
 DEFAULT_REPO_URL = f"https://{HOST_WEB}/ReinosDeLeyenda/addons"
 
-LAUNCHER_VERSION = "1.1.3"
+LAUNCHER_VERSION = "1.1.4"
 LAUNCHER_REPO = "ReinosDeLeyenda/launcher"
 LAUNCHER_RELEASES_URL = f"https://{HOST_WEB}/{LAUNCHER_REPO}/releases"
 LAUNCHER_LATEST_URL = f"{LAUNCHER_RELEASES_URL}/latest"

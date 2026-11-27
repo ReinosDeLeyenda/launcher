@@ -12,6 +12,7 @@ import queue
 import socket
 import struct
 import threading
+import time
 import traceback
 from collections import deque
 from enum import IntEnum
@@ -59,6 +60,7 @@ IGNORED_COMMANDS = frozenset({
     WorldCommand.SMSG_ALL_ACHIEVEMENT_DATA, WorldCommand.SMSG_EQUIPMENT_SET_LIST,
     WorldCommand.SMSG_LOGIN_SETTIMESPEED, WorldCommand.SMSG_SET_FORCED_REACTIONS,
     WorldCommand.SMSG_COMPRESSED_UPDATE_OBJECT, WorldCommand.SMSG_MONSTER_MOVE,
+    WorldCommand.SMSG_PONG,
 })
 
 
@@ -75,6 +77,8 @@ class WorldSocket:
         self._send_lock = threading.Lock()
         self._closing = False
         self._queue: "queue.Queue[Optional[tuple]]" = queue.Queue()
+        self._start_time = time.monotonic()
+        self._ping_seq = 0
         self._handlers: Dict[int, Callable[[InPacket], None]] = {}
         self.init_handlers()
 
@@ -94,6 +98,7 @@ class WorldSocket:
             WorldCommand.SMSG_MESSAGECHAT: self.handle_message_chat,
             WorldCommand.SMSG_CHAT_PLAYER_NOT_FOUND: self.handle_chat_player_not_found,
             WorldCommand.SMSG_NAME_QUERY_RESPONSE: self.handle_name_query_response,
+            WorldCommand.SMSG_TIME_SYNC_REQ: self.handle_time_sync_req,
         }
         for name, handler in self._handlers.items():
             self._ui.log_line(f"Registered '{handler.__name__}' to '{WorldCommand(name).name}'", LogLevel.Debug)
@@ -106,7 +111,11 @@ class WorldSocket:
         info = self.server_info
         self._ui.log(f"Connecting to realm {info.name}... ")
         try:
-            self._sock = socket.create_connection((info.address, info.port), timeout=15)
+            addr_info = socket.getaddrinfo(info.address, info.port, socket.AF_INET, socket.SOCK_STREAM)
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._sock.settimeout(15)
+            self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._sock.connect(addr_info[0][4])
             if self._closing:
                 self.close()
                 return False
@@ -120,6 +129,7 @@ class WorldSocket:
     def start(self) -> None:
         threading.Thread(target=self._worker_loop, name="world-handlers", daemon=True).start()
         threading.Thread(target=self._read_loop, name="world-reader", daemon=True).start()
+        threading.Thread(target=self._ping_loop, name="world-ping", daemon=True).start()
 
     def close(self) -> None:
         self._closing = True
@@ -201,6 +211,30 @@ class WorldSocket:
                 self._ui.log_line(traceback.format_exc(), LogLevel.Debug)
 
     # -- auth handlers (PacketHandlers/AuthHandlers.cs) ------------------------------------
+
+    def _uptime_ms(self) -> int:
+        return int((time.monotonic() - self._start_time) * 1000) & 0xFFFFFFFF
+
+    def _ping_loop(self) -> None:
+        while not self._closing:
+            time.sleep(30)
+            if self._closing or self.crypto.status != AuthStatus.Ready:
+                continue
+            self._ping_seq = (self._ping_seq + 1) & 0xFFFFFFFF
+            pkt = OutPacket(WorldCommand.CMSG_PING)
+            pkt.write_u32(self._ping_seq)
+            pkt.write_u32(0)  # latencia estimada en ms
+            try:
+                self.send(pkt)
+            except OSError:
+                break
+
+    def handle_time_sync_req(self, packet: InPacket) -> None:
+        counter = packet.read_u32()
+        resp = OutPacket(WorldCommand.CMSG_TIME_SYNC_RESP)
+        resp.write_u32(counter)
+        resp.write_u32(self._uptime_ms())
+        self.send(resp)
 
     def handle_server_auth_challenge(self, packet: InPacket) -> None:
         packet.read_u32()               # one

@@ -273,7 +273,7 @@ class WoWChatWindow(tk.Toplevel):
             else:
                 self.had_error |= kind == "error"
                 self._append(data, "error" if kind == "error" else "system")
-        self.poll_job = self.after(55, self._poll_session)
+        self.poll_job = self.after(15, self._poll_session)
 
     def _send(self, _event=None):
         if self.session is not None and self.ready:
