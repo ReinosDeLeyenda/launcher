@@ -49,7 +49,7 @@ def _send_password_physical(password):
     user32.keybd_event(VK_RETURN, 0, KEYEVENTF_KEYUP, 0)
 
 
-def _set_wow_account_name(wow_dir, username):
+def _update_wow_config(wow_dir, settings):
     wtf_dir = os.path.join(wow_dir, "WTF")
     os.makedirs(wtf_dir, exist_ok=True)
     cfg_path = os.path.join(wtf_dir, "Config.wtf")
@@ -59,14 +59,21 @@ def _set_wow_account_name(wow_dir, username):
         with open(cfg_path, "r", encoding="utf-8", errors="ignore") as f:
             content = f.read()
 
-    line = f'SET accountName "{username}"'
-    if re.search(r'^SET\s+accountName\s+".*?"', content, re.MULTILINE | re.IGNORECASE):
-        content = re.sub(r'^SET\s+accountName\s+".*?"', line, content, flags=re.MULTILINE | re.IGNORECASE)
-    else:
-        content = content.rstrip() + ("\n" if content.strip() else "") + line + "\n"
+    for key, val in settings.items():
+        line = f'SET {key} "{val}"'
+        pattern = rf'^SET\s+{re.escape(key)}\s+".*?"'
+        if re.search(pattern, content, re.MULTILINE | re.IGNORECASE):
+            content = re.sub(pattern, line, content, flags=re.MULTILINE | re.IGNORECASE)
+        else:
+            content = content.rstrip() + ("\n" if content.strip() else "") + line + "\n"
 
     with open(cfg_path, "w", encoding="utf-8") as f:
         f.write(content)
+    return cfg_path
+
+
+def _set_wow_account_name(wow_dir, username):
+    cfg_path = _update_wow_config(wow_dir, {"accountName": username})
     debug_log("AUTOLOGIN", f"Config.wtf actualizado en {cfg_path} con accountName='{username}'")
 
 
@@ -295,32 +302,10 @@ class LauncherController:
 
 
 def _prepare_wow_config_multibox(wow_dir, username=None):
-    wtf_dir = os.path.join(wow_dir, "WTF")
-    os.makedirs(wtf_dir, exist_ok=True)
-    cfg_path = os.path.join(wtf_dir, "Config.wtf")
-
-    content = ""
-    if os.path.isfile(cfg_path):
-        with open(cfg_path, "r", encoding="utf-8", errors="ignore") as f:
-            content = f.read()
-
-    settings = {
-        "gxWindow": "1",
-        "gxMaximize": "0",
-    }
+    settings = {"gxWindow": "1", "gxMaximize": "0"}
     if username:
         settings["accountName"] = username
-
-    for key, val in settings.items():
-        line = f'SET {key} "{val}"'
-        pattern = rf'^SET\s+{re.escape(key)}\s+".*?"'
-        if re.search(pattern, content, re.MULTILINE | re.IGNORECASE):
-            content = re.sub(pattern, line, content, flags=re.MULTILINE | re.IGNORECASE)
-        else:
-            content = content.rstrip() + ("\n" if content.strip() else "") + line + "\n"
-
-    with open(cfg_path, "w", encoding="utf-8") as f:
-        f.write(content)
+    _update_wow_config(wow_dir, settings)
 
 
 def _apply_window_rect(hwnd, rect, show_borders=False):

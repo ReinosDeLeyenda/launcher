@@ -238,30 +238,6 @@ class RDLLauncher(tk.Tk):
             command=self.open_addons_dialog,
         ).pack(side="right", padx=10, pady=4)
 
-        self.obsolete_addon_banner = tk.Frame(self, bg="#ff7043", highlightbackground="#ffccbc", highlightthickness=1)
-        self.obsolete_addon_lbl = tk.Label(
-            self.obsolete_addon_banner,
-            text="⚠️ Addon obsoleto detectado: ModernCharacterUI está obsoleto. Elimínalo y reemplázalo por ModernUI.",
-            font=("Segoe UI", 9, "bold"),
-            fg="#04121f",
-            bg="#ff7043",
-            padx=12,
-            pady=5,
-        )
-        self.obsolete_addon_lbl.pack(side="left")
-        tk.Button(
-            self.obsolete_addon_banner,
-            text="Abrir Addons",
-            font=("Segoe UI", 8, "bold"),
-            fg=THEME["text_main"],
-            bg="#04121f",
-            relief="flat",
-            padx=10,
-            pady=3,
-            cursor="hand2",
-            command=self.open_addons_dialog,
-        ).pack(side="right", padx=10, pady=4)
-
         center = tk.Frame(self, bg=THEME["bg_main"])
         center.pack(fill="both", expand=True, padx=10, pady=(4, 10))
         center.grid_columnconfigure(0, weight=3)

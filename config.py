@@ -25,7 +25,7 @@ HOST_RAW = "raw." + "githubusercontent.com"
 HOST_WEB = "github.com"
 DEFAULT_REPO_URL = f"https://{HOST_WEB}/ReinosDeLeyenda/addons"
 
-LAUNCHER_VERSION = "1.1.0"
+LAUNCHER_VERSION = "1.1.1"
 LAUNCHER_REPO = "ReinosDeLeyenda/launcher"
 LAUNCHER_RELEASES_URL = f"https://{HOST_WEB}/{LAUNCHER_REPO}/releases"
 LAUNCHER_LATEST_URL = f"{LAUNCHER_RELEASES_URL}/latest"
@@ -239,22 +239,24 @@ def load_multibox_profiles():
     profiles = {}
     if cfg.has_section("MultiboxProfiles"):
         for name, raw in cfg.items("MultiboxProfiles"):
-            rows, cols, borders = 1, 2, False
+            rows, cols, borders, layout = 1, 2, False, "Cuadricula (Filas x Columnas)"
             slots_str = raw
             if "::" in raw:
                 meta, slots_str = raw.split("::", 1)
                 m_parts = meta.split("|")
                 if len(m_parts) >= 3:
-                    rows = max(1, min(4, int(m_parts[0])))
-                    cols = max(1, min(4, int(m_parts[1])))
-                    borders = m_parts[2] == "1"
+                    rows = max(1, min(4, int(m_parts.pop(0))))
+                    cols = max(1, min(6, int(m_parts.pop(0))))
+                    borders = m_parts.pop(0) == "1"
+                if m_parts and next(iter(m_parts)).strip():
+                    layout = m_parts.pop(0).strip()
             slots = []
             for part in slots_str.split(","):
                 part = part.strip()
                 if "|" in part:
                     acc, cli = part.split("|", 1)
                     slots.append((acc.strip(), cli.strip()))
-            if 1 <= len(slots) <= 16:
+            if 1 <= len(slots) <= 24:
                 if "::" not in raw:
                     rows = 2 if len(slots) == 4 else 1
                     cols = 2 if len(slots) in (2, 4) else len(slots)
@@ -262,6 +264,7 @@ def load_multibox_profiles():
                     "rows": rows,
                     "cols": cols,
                     "borders": borders,
+                    "layout": layout,
                     "slots": slots,
                 }
     return profiles
@@ -276,9 +279,10 @@ def save_multibox_profiles(profiles):
         rows = data.get("rows", 1)
         cols = data.get("cols", 2)
         borders = "1" if data.get("borders", False) else "0"
+        layout = data.get("layout", "Cuadricula (Filas x Columnas)")
         slots = data.get("slots", [])
         slots_str = ",".join(f"{acc}|{cli}" for acc, cli in slots)
-        cfg["MultiboxProfiles"][name] = f"{rows}|{cols}|{borders}::{slots_str}"
+        cfg["MultiboxProfiles"][name] = f"{rows}|{cols}|{borders}|{layout}::{slots_str}"
     try:
         with open(INI_FILE, "w", encoding="utf-8") as f:
             cfg.write(f)
