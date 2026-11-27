@@ -25,7 +25,7 @@ HOST_RAW = "raw." + "githubusercontent.com"
 HOST_WEB = "github.com"
 DEFAULT_REPO_URL = f"https://{HOST_WEB}/ReinosDeLeyenda/addons"
 
-LAUNCHER_VERSION = "1.1.2"
+LAUNCHER_VERSION = "1.1.3"
 LAUNCHER_REPO = "ReinosDeLeyenda/launcher"
 LAUNCHER_RELEASES_URL = f"https://{HOST_WEB}/{LAUNCHER_REPO}/releases"
 LAUNCHER_LATEST_URL = f"{LAUNCHER_RELEASES_URL}/latest"
@@ -264,7 +264,7 @@ def load_multibox_profiles():
                     "rows": rows,
                     "cols": cols,
                     "borders": borders,
-                    "layout": layout,
+                    "layout": layout, "monitor": monitor,
                     "slots": slots,
                 }
     return profiles
@@ -280,9 +280,10 @@ def save_multibox_profiles(profiles):
         cols = data.get("cols", 2)
         borders = "1" if data.get("borders", False) else "0"
         layout = data.get("layout", "Cuadricula (Filas x Columnas)")
+        monitor = int(data.get("monitor", 0))
         slots = data.get("slots", [])
         slots_str = ",".join(f"{acc}|{cli}" for acc, cli in slots)
-        cfg["MultiboxProfiles"][name] = f"{rows}|{cols}|{borders}|{layout}::{slots_str}"
+        cfg["MultiboxProfiles"][name] = f"{rows}|{cols}|{borders}|{layout}|{monitor}::{slots_str}"
     try:
         with open(INI_FILE, "w", encoding="utf-8") as f:
             cfg.write(f)

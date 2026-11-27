@@ -1,5 +1,6 @@
 import ctypes.wintypes
 import os
+import sys
 import tkinter as tk
 
 import ctypes
@@ -95,6 +96,7 @@ class RDLLauncher(tk.Tk):
         self._warned_obsolete_dirs = set()
         self.spinner_idx = 0
 
+        self.debug_args = [a.lower() for a in sys.argv] if "--debug" in [a.lower() for a in sys.argv] else []
         self.ctrl = LauncherController(self)
         self.protocol("WM_DELETE_WINDOW", self.ctrl.on_close_window)
 
@@ -429,7 +431,7 @@ class RDLLauncher(tk.Tk):
         self.account_var.set(f"👤 {self.active_account_alias}" if self.active_account_alias else "👤 Manual")
 
     def open_multibox_dialog(self):
-        open_multibox_window(self, self.ctrl.launch_multibox)
+        open_multibox_window(self, self.ctrl.launch_multibox, debug_args=getattr(self, "debug_args", []))
 
     def open_chat_dialog(self):
         if self.chat_window is not None:
